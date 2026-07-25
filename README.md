@@ -49,10 +49,17 @@ pip install -e ".[dev]"
 pre-commit install
 ```
 
-Copy the example configuration and fill it in:
+Copy the example configuration and point it at a PostgreSQL database:
 
 ```bash
 cp .env.example .env
+```
+
+Create the schema and install the service catalogue:
+
+```bash
+alembic upgrade head
+fleetkeeper sync-catalog
 ```
 
 Run the development server:
@@ -62,6 +69,22 @@ uvicorn fleetkeeper.main:app --reload
 ```
 
 The app is then available at http://127.0.0.1:8000.
+
+## Data model
+
+Vehicles, service history, documents and fuel logs all belong to a *garage*, and a user
+sees a garage's data by being a member of it. Every member has the same rights, which
+keeps the number of concepts down for the least technical person in the household.
+
+Tenant isolation is enforced by the database rather than by remembering to add a filter.
+Child tables carry `garage_id` alongside `vehicle_id` and reference the pair through a
+composite foreign key, so a row whose garage disagrees with its vehicle's garage cannot be
+written at all.
+
+The service catalogue is reference data defined in `catalog/builtin.py` and installed by
+`fleetkeeper sync-catalog`. Each entry declares which fuel types, gearboxes, drivetrains
+and equipment it needs, so a manual gearbox is never offered a dual-clutch fluid change and
+a timing chain never asks for a belt.
 
 ## Development
 
@@ -79,15 +102,20 @@ The same four commands run in CI on every push and pull request.
 ```
 src/fleetkeeper/
     config.py         application settings, read from environment
+    database.py       engine and session factory
     main.py           application factory
+    cli.py            administrative commands
+    models/           SQLAlchemy models, one module per area
+    catalog/          the built-in service catalogue and its installer
     web/              routes, templates, static assets
+migrations/           Alembic revisions
 tests/                test suite
 ```
 
 ## Roadmap
 
 - [x] Project skeleton, tooling, continuous integration
-- [ ] Data model and migrations
+- [x] Data model, migrations and service catalogue
 - [ ] Authentication and mobile-first layout
 - [ ] Vehicles and odometer tracking
 - [ ] Service history with attachments

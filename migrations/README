@@ -1,0 +1,22 @@
+Alembic migrations.
+
+The database URL is not stored in alembic.ini. env.py reads it from the application
+settings, so the credential lives only in .env or in the deployment environment.
+
+Create a revision after changing a model:
+
+    alembic revision --autogenerate -m "short description"
+
+Read what was generated before applying it. Autogenerate is good at columns and
+constraints and blind to anything that needs data moved, so a renamed column arrives as a
+drop followed by an add unless it is rewritten by hand.
+
+Apply it, roll back one step, and confirm the models and the database still agree:
+
+    alembic upgrade head
+    alembic downgrade -1
+    alembic check
+
+Reference data is not loaded here. A migration that imports application code breaks as
+soon as that code moves on, so the service catalogue is installed by
+`fleetkeeper sync-catalog`, which is safe to re-run against any version.
