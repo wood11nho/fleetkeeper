@@ -65,7 +65,7 @@ fleetkeeper sync-catalog
 Run the development server:
 
 ```bash
-uvicorn fleetkeeper.main:app --reload
+uvicorn --factory fleetkeeper.main:create_app --reload
 ```
 
 The app is then available at http://127.0.0.1:8000.
