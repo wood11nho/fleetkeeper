@@ -1,0 +1,110 @@
+{% extends "app.html" %}
+
+{% block title %}{{ vehicle.name }} · FleetKeeper{% endblock %}
+
+{% macro row(label, value) %}
+{% if value %}
+<div class="facts__row">
+  <dt class="facts__label">{{ label }}</dt>
+  <dd class="facts__value">{{ value }}</dd>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+<h1>{{ vehicle.name }}</h1>
+<p class="lead">
+  {{ vehicle.make }} {{ vehicle.model }}{% if vehicle.generation %} {{ vehicle.generation }}{% endif %}{% if vehicle.model_year %}, {{ vehicle.model_year }}{% endif %}
+</p>
+
+{% if notice %}
+<p class="notice notice--error" role="alert">{{ notice }}</p>
+{% endif %}
+
+<section class="card">
+  <h2 class="card__title">Kilometraj</h2>
+  {% if vehicle.current_mileage_km %}
+  <p class="figure figure--large">{{ vehicle.current_mileage_km | km }} km</p>
+  {% else %}
+  <p class="hint-line">Încă necompletat. Fără el nu putem estima datele scadențelor.</p>
+  {% endif %}
+
+  <form class="inline-form" method="post" action="/masini/{{ vehicle.id }}/kilometraj">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+    <input type="hidden" name="recorded_on" value="{{ today }}" />
+    <label class="field inline-form__field">
+      <span class="field__label">Citirea de acum</span>
+      <input class="field__input" type="text" name="mileage_km" inputmode="numeric" required />
+    </label>
+    <button class="button button--primary" type="submit">Salvează kilometrajul</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2 class="card__title">Date tehnice</h2>
+  <dl class="facts">
+    {{ row("Combustibil", fuel_labels[vehicle.fuel_type.value]) }}
+    {{ row("Cutie", gearbox_labels[vehicle.gearbox_type.value]) }}
+    {{ row("Trepte", vehicle.gearbox_gears) }}
+    {{ row("Tracțiune", drivetrain_labels[vehicle.drivetrain.value]) }}
+    {{ row("Cod motor", vehicle.engine_code) }}
+    {{ row("Capacitate", vehicle.engine_displacement_cc and vehicle.engine_displacement_cc ~ " cm³") }}
+    {{ row("Putere", vehicle.power_hp and vehicle.power_hp ~ " CP") }}
+    {{ row("Număr", vehicle.registration_number) }}
+    {{ row("VIN", vehicle.vin) }}
+    {{ row("Prima înmatriculare", vehicle.first_registration_date) }}
+    {{ row("Kilometri pe an", vehicle.annual_mileage_km and (vehicle.annual_mileage_km | km) ~ " km") }}
+  </dl>
+
+  {% if vehicle.equipment %}
+  <p class="field__label">Echipare</p>
+  <ul class="chips">
+    {% for item in vehicle.equipment %}
+    <li class="chip">{{ equipment_labels[item] }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if vehicle.notes %}
+  <p class="field__label">Notițe</p>
+  <p class="muted">{{ vehicle.notes }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2 class="card__title">Intervale pregătite</h2>
+  <p class="muted">
+    Generate din catalog, filtrate după motorizarea, cutia, tracțiunea și echiparea acestei
+    mașini. Fiecare valoare se poate schimba — la pasul următor.
+  </p>
+
+  {% for section, rules in sections %}
+  <h3 class="facts__heading">{{ section_labels[section] }}</h3>
+  <ul class="rules">
+    {% for rule in rules %}
+    <li class="rule">
+      <span class="rule__name">{{ rule.category.name }}</span>
+      <span class="rule__interval">
+        {%- if rule.interval_km and rule.interval_months -%}
+          {{ rule.interval_km | km }} km sau {{ rule.interval_months }} luni
+        {%- elif rule.interval_km -%}
+          {{ rule.interval_km | km }} km
+        {%- elif rule.interval_months -%}
+          {{ rule.interval_months }} luni
+        {%- endif -%}
+      </span>
+      {% if rule.category.kind.value == "inspection" %}
+      <span class="badge badge--check">de verificat, nu de schimbat</span>
+      {% endif %}
+      {% if rule.category.interval_source %}
+      <span class="badge">{{ source_labels[rule.category.interval_source.value] }}</span>
+      {% endif %}
+      {% if rule.category.hint %}
+      <span class="rule__hint">{{ rule.category.hint }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</section>
+{% endblock %}

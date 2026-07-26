@@ -136,6 +136,22 @@ records where the better figure came from — a page in the service book, a mech
 advice. Provenance applies to the owner's numbers as much as to the defaults, and a figure
 changed two years ago is otherwise impossible to account for.
 
+## Interface decisions
+
+A field offers a list only where the application has to reason about the answer: fuel, gearbox,
+drivetrain and equipment, which together decide what appears in a car's schedule. Make, model,
+part numbers, oil brands and workshops are typed freely, because no list anyone could maintain
+would stay complete, and an incomplete list blocks the person trying to record something real.
+
+Those four lists are radio groups rather than dropdowns. Every option and its explanation stays
+on screen, with nothing to open, scroll and mis-tap — and the explanations matter, because
+whether a car has a timing belt or a timing chain decides whether it ever gets a distribution
+reminder, and most owners do not know which they have.
+
+Errors come back as a sentence beside the field that caused them, with everything else still
+filled in. Optional fields are labelled as optional rather than required ones being starred,
+which reads as permission to skip rather than as a demand.
+
 ## Configuration
 
 An application is handed its settings when it is built and keeps its own session factory.
@@ -192,7 +208,8 @@ src/fleetkeeper/
     models/           SQLAlchemy models, one module per area
     catalog/          the built-in service catalogue and its installer
     security/         passwords, sessions, sign-in throttling, CSRF
-    web/              routes, templates, static assets
+    services/         who may see what, and what happens when a car is added
+    web/              routes, forms, labels, templates, static assets
 migrations/           Alembic revisions
 tests/                test suite
 ```
@@ -202,7 +219,8 @@ tests/                test suite
 - [x] Project skeleton, tooling, continuous integration
 - [x] Data model, migrations and service catalogue
 - [x] Authentication and mobile-first layout
-- [ ] Vehicles and odometer tracking
+- [x] Vehicles, odometer tracking, schedules generated per car
+- [ ] Editing a vehicle and adjusting its intervals
 - [ ] Service history with attachments
 - [ ] Due-date engine
 - [ ] Insurance and inspection documents

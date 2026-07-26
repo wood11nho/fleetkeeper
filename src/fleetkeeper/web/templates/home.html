@@ -6,12 +6,25 @@
 <h1>Salut, {{ user.full_name.split()[0] }}</h1>
 
 {% if garages %}
-  {% for garage in garages %}
-  <section class="card">
-    <h2 class="card__title">{{ garage.name }}</h2>
-    <p class="muted">Încă nu sunt mașini în acest garaj.</p>
-  </section>
-  {% endfor %}
+<section class="card">
+  <h2 class="card__title">{{ garages | map(attribute="name") | join(", ") }}</h2>
+  {% if vehicles %}
+  <p class="muted">
+    {{ vehicles | length }}
+    {%- if vehicles | length == 1 %} mașină{% else %} mașini{% endif %} în evidență.
+  </p>
+  <ul class="chips">
+    {% for vehicle in vehicles %}
+    <li class="chip"><a href="/masini/{{ vehicle.id }}">{{ vehicle.name }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nicio mașină încă.</p>
+  <p class="card__footer">
+    <a class="button button--primary" href="/masini/adauga">Adaugă prima mașină</a>
+  </p>
+  {% endif %}
+</section>
 {% else %}
 <p class="notice">Nu ești membru în niciun garaj.</p>
 {% endif %}
@@ -19,8 +32,8 @@
 <section class="card">
   <h2 class="card__title">Ce urmează</h2>
   <p class="muted">
-    Adăugarea mașinilor și lista de scadențe vin la pasul următor. Deocamdată contul și
-    garajul sunt gata.
+    Lista scadențelor — ce trebuie făcut și când — se construiește după ce adaugi mașinile și
+    primele intervenții din istoric.
   </p>
 </section>
 {% endblock %}

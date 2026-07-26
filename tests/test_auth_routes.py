@@ -61,6 +61,14 @@ def test_the_health_endpoint_stays_public(client: TestClient) -> None:
     assert client.get("/health").status_code == 200
 
 
+def test_every_vehicle_page_needs_a_signed_in_user(client: TestClient) -> None:
+    for path in ("/masini", "/masini/adauga", "/masini/1"):
+        response = client.get(path, follow_redirects=False)
+
+        assert response.status_code == 303, path
+        assert response.headers["location"].startswith(SIGN_IN_PATH), path
+
+
 def test_only_local_destinations_survive() -> None:
     assert _safe_destination("/masini/3") == "/masini/3"
     assert _safe_destination("https://example.com") == HOME_PATH

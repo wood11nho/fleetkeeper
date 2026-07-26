@@ -5,6 +5,7 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 from fleetkeeper.security import csrf
+from fleetkeeper.web import formatting
 
 WEB_DIR = Path(__file__).parent
 TEMPLATES_DIR = WEB_DIR / "templates"
@@ -18,3 +19,4 @@ def _shared_context(request: Request) -> dict[str, Any]:
 
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR, context_processors=[_shared_context])
+templates.env.filters["km"] = formatting.thousands

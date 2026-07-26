@@ -1,0 +1,33 @@
+{% extends "app.html" %}
+
+{% block title %}Mașini · FleetKeeper{% endblock %}
+
+{% block content %}
+<h1>Mașini</h1>
+
+{% if vehicles %}
+  {% for vehicle in vehicles %}
+  <a class="card card--link" href="/masini/{{ vehicle.id }}">
+    <h2 class="card__title">{{ vehicle.name }}</h2>
+    <p class="muted">
+      {{ vehicle.make }} {{ vehicle.model }}{% if vehicle.model_year %}, {{ vehicle.model_year }}{% endif %},
+      {{ fuel_labels[vehicle.fuel_type.value] | lower }}
+    </p>
+    {% if vehicle.current_mileage_km %}
+    <p class="figure">{{ vehicle.current_mileage_km | km }} km</p>
+    {% else %}
+    <p class="hint-line">Completează kilometrajul ca să putem calcula scadențele.</p>
+    {% endif %}
+  </a>
+  {% endfor %}
+{% else %}
+<section class="card">
+  <h2 class="card__title">Nicio mașină încă</h2>
+  <p class="muted">
+    Adaugă prima mașină și îi pregătim automat lista de intervale, filtrată după motorizare,
+    cutie, tracțiune și echipare.
+  </p>
+  <p class="card__footer"><a class="button button--primary" href="/masini/adauga">Adaugă o mașină</a></p>
+</section>
+{% endif %}
+{% endblock %}
