@@ -477,3 +477,62 @@ a {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-5);
+}
+
+.actions .button {
+  flex: 1 1 12rem;
+  text-decoration: none;
+}
+
+.rule--off .rule__name,
+.rule--off .rule__interval {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+.interval {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.interval:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* An unwatched line stays readable but recedes, so the eye goes to what is being tracked. */
+.interval--off {
+  opacity: 0.65;
+}
+
+.interval__name {
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+}
+
+.interval__inputs {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.interval__field {
+  flex: 1 1 0;
+}
+
+.interval__hint {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-muted);
+  font-size: var(--text-small);
+}
+
+.interval .field + .field,
+.interval .field + .checkbox {
+  margin-top: var(--space-3);
+}

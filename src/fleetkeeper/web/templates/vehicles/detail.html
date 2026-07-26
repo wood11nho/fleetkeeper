@@ -21,6 +21,11 @@
 <p class="notice notice--error" role="alert">{{ notice }}</p>
 {% endif %}
 
+<p class="actions">
+  <a class="button" href="/masini/{{ vehicle.id }}/editeaza">Editează mașina</a>
+  <a class="button" href="/masini/{{ vehicle.id }}/intervale">Reglează intervalele</a>
+</p>
+
 <section class="card">
   <h2 class="card__title">Kilometraj</h2>
   {% if vehicle.current_mileage_km %}
@@ -75,15 +80,16 @@
   <h2 class="card__title">Intervale pregătite</h2>
   <p class="muted">
     Generate din catalog, filtrate după motorizarea, cutia, tracțiunea și echiparea acestei
-    mașini. Fiecare valoare se poate schimba — la pasul următor.
+    mașini. Orice valoare se poate schimba din <a href="/masini/{{ vehicle.id }}/intervale">Reglează intervalele</a>.
   </p>
 
   {% for section, rules in sections %}
   <h3 class="facts__heading">{{ section_labels[section] }}</h3>
   <ul class="rules">
     {% for rule in rules %}
-    <li class="rule">
+    <li class="rule{% if not rule.is_enabled %} rule--off{% endif %}">
       <span class="rule__name">{{ rule.category.name }}</span>
+      {% if rule.is_enabled %}
       <span class="rule__interval">
         {%- if rule.interval_km and rule.interval_months -%}
           {{ rule.interval_km | km }} km sau {{ rule.interval_months }} luni
@@ -93,11 +99,17 @@
           {{ rule.interval_months }} luni
         {%- endif -%}
       </span>
+      {% else %}
+      <span class="rule__interval">neurmărită</span>
+      {% endif %}
       {% if rule.category.kind.value == "inspection" %}
       <span class="badge badge--check">de verificat, nu de schimbat</span>
       {% endif %}
       {% if rule.category.interval_source %}
       <span class="badge">{{ source_labels[rule.category.interval_source.value] }}</span>
+      {% endif %}
+      {% if rule.source_note %}
+      <span class="badge">sursa ta: {{ rule.source_note }}</span>
       {% endif %}
       {% if rule.category.hint %}
       <span class="rule__hint">{{ rule.category.hint }}</span>

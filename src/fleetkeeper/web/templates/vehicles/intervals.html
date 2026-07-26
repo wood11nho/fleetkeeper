@@ -1,0 +1,115 @@
+{% extends "app.html" %}
+
+{% block title %}Intervale · {{ vehicle.name }} · FleetKeeper{% endblock %}
+
+{% macro value_of(field, fallback) %}
+{%- if submitted -%}{{ submitted.get(field, "") }}{%- elif fallback -%}{{ fallback }}{%- endif -%}
+{% endmacro %}
+
+{% block content %}
+<h1>Intervale</h1>
+<p class="lead">{{ vehicle.name }}</p>
+
+{% if notice %}
+<p class="notice notice--error" role="alert">{{ notice }}</p>
+{% elif problems %}
+<p class="notice notice--error" role="alert">
+  Câteva valori au nevoie de atenție. Sunt marcate mai jos, iar nimic nu s-a salvat încă.
+</p>
+{% endif %}
+
+<p class="notice">
+  Valorile de aici sunt ale acestei mașini. Le poți schimba oricând, iar o actualizare a
+  catalogului nu le mai atinge. Dacă ai luat o valoare din carnetul de service sau de la
+  mecanic, scrie de unde — peste doi ani nu vei mai ține minte.
+</p>
+
+<form method="post" action="/masini/{{ vehicle.id }}/intervale">
+  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+
+  {% for section, rules in sections %}
+  <section class="card">
+    <h2 class="card__title">{{ section_labels[section] }}</h2>
+
+    {% for rule in rules %}
+    <div class="interval{% if not rule.is_enabled %} interval--off{% endif %}">
+      {# Marks that this row was on the page. Without it, an unticked box and a row that never
+         arrived are indistinguishable, and a partial submission would switch off the rest. #}
+      <input type="hidden" name="present_{{ rule.id }}" value="1" />
+      <p class="interval__name">{{ rule.category.name }}</p>
+
+      {% if rule.category.kind.value == "inspection" %}
+      <span class="badge badge--check">de verificat, nu de schimbat</span>
+      {% endif %}
+      {% if rule.category.interval_source %}
+      <span class="badge">{{ source_labels[rule.category.interval_source.value] }}</span>
+      {% endif %}
+
+      <div class="interval__inputs">
+        <label class="field interval__field">
+          <span class="field__label">Kilometri</span>
+          <input
+            class="field__input{% if problems.get('km_' ~ rule.id) %} field__input--invalid{% endif %}"
+            type="text"
+            name="km_{{ rule.id }}"
+            inputmode="numeric"
+            value="{{ value_of('km_' ~ rule.id, rule.interval_km) }}"
+          />
+        </label>
+        <label class="field interval__field">
+          <span class="field__label">Luni</span>
+          <input
+            class="field__input{% if problems.get('months_' ~ rule.id) %} field__input--invalid{% endif %}"
+            type="text"
+            name="months_{{ rule.id }}"
+            inputmode="numeric"
+            value="{{ value_of('months_' ~ rule.id, rule.interval_months) }}"
+          />
+        </label>
+      </div>
+
+      {% if problems.get("km_" ~ rule.id) %}
+      <span class="field__error">{{ problems["km_" ~ rule.id] }}</span>
+      {% endif %}
+      {% if problems.get("months_" ~ rule.id) %}
+      <span class="field__error">{{ problems["months_" ~ rule.id] }}</span>
+      {% endif %}
+
+      <label class="field">
+        <span class="field__label">
+          De unde vine valoarea <span class="field__optional">opțional</span>
+        </span>
+        <input
+          class="field__input{% if problems.get('note_' ~ rule.id) %} field__input--invalid{% endif %}"
+          type="text"
+          name="note_{{ rule.id }}"
+          placeholder="carnet service pagina 212, mecanicul Ionescu"
+          value="{{ value_of('note_' ~ rule.id, rule.source_note) }}"
+        />
+        {% if problems.get("note_" ~ rule.id) %}
+        <span class="field__error">{{ problems["note_" ~ rule.id] }}</span>
+        {% endif %}
+      </label>
+
+      <label class="checkbox">
+        <input type="checkbox" name="enabled_{{ rule.id }}" value="true"
+               {% if submitted %}{% if submitted.get("enabled_" ~ rule.id) %}checked{% endif %}
+               {% elif rule.is_enabled %}checked{% endif %} />
+        <span>Urmărește această operațiune</span>
+      </label>
+
+      {% if rule.category.hint %}
+      <p class="interval__hint">{{ rule.category.hint }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+
+  <button class="button button--primary" type="submit">Salvează intervalele</button>
+</form>
+
+<p class="card__footer">
+  <a href="/masini/{{ vehicle.id }}">Renunță și întoarce-te la fișa mașinii</a>
+</p>
+{% endblock %}

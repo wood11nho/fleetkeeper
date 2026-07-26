@@ -2,59 +2,6 @@
 
 {% block title %}Adaugă o mașină · FleetKeeper{% endblock %}
 
-{% macro text_field(name, label, hint=None, required=False, inputmode=None, maxlength=None) %}
-<label class="field">
-  <span class="field__label">
-    {{ label }}{% if not required %} <span class="field__optional">opțional</span>{% endif %}
-  </span>
-  {% if hint %}<span class="field__hint">{{ hint }}</span>{% endif %}
-  <input
-    class="field__input{% if errors.get(name) %} field__input--invalid{% endif %}"
-    type="text"
-    name="{{ name }}"
-    value="{{ values.get(name, '') }}"
-    {% if inputmode %}inputmode="{{ inputmode }}"{% endif %}
-    {% if maxlength %}maxlength="{{ maxlength }}"{% endif %}
-    {% if required %}required{% endif %}
-  />
-  {% if errors.get(name) %}<span class="field__error">{{ errors[name] }}</span>{% endif %}
-</label>
-{% endmacro %}
-
-{% macro date_field(name, label) %}
-<label class="field">
-  <span class="field__label">{{ label }} <span class="field__optional">opțional</span></span>
-  <input
-    class="field__input{% if errors.get(name) %} field__input--invalid{% endif %}"
-    type="date"
-    name="{{ name }}"
-    value="{{ values.get(name, '') }}"
-  />
-  {% if errors.get(name) %}<span class="field__error">{{ errors[name] }}</span>{% endif %}
-</label>
-{% endmacro %}
-
-{% macro choice_group(name, legend, choices) %}
-<fieldset class="choices">
-  <legend class="choices__legend">{{ legend }}</legend>
-  {% if errors.get(name) %}<span class="field__error">{{ errors[name] }}</span>{% endif %}
-  {% for choice in choices %}
-  <label class="choice">
-    <input
-      type="radio"
-      name="{{ name }}"
-      value="{{ choice.value }}"
-      {% if values.get(name) == choice.value %}checked{% endif %}
-    />
-    <span class="choice__body">
-      <span class="choice__label">{{ choice.label }}</span>
-      {% if choice.note %}<span class="choice__note">{{ choice.note }}</span>{% endif %}
-    </span>
-  </label>
-  {% endfor %}
-</fieldset>
-{% endmacro %}
-
 {% block content %}
 <h1>Adaugă o mașină</h1>
 
@@ -68,83 +15,7 @@
 
 <form class="stack" method="post" action="/masini/adauga">
   <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-
-  {% if garages | length > 1 %}
-  <fieldset class="choices">
-    <legend class="choices__legend">Garaj</legend>
-    {% if errors.get("garage_id") %}<span class="field__error">{{ errors["garage_id"] }}</span>{% endif %}
-    {% for garage in garages %}
-    <label class="choice">
-      <input type="radio" name="garage_id" value="{{ garage.id }}"
-             {% if values.get("garage_id") == garage.id | string %}checked{% endif %} />
-      <span class="choice__body"><span class="choice__label">{{ garage.name }}</span></span>
-    </label>
-    {% endfor %}
-  </fieldset>
-  {% endif %}
-
-  <section class="card">
-    <h2 class="card__title">Identificare</h2>
-    {{ text_field("name", "Cum îi spuneți", "Numele scurt pe care îl folosiți: Golf Plus, Audi lui tata", required=True, maxlength=60) }}
-    {{ text_field("make", "Marca", "Volkswagen, Seat, Audi", required=True, maxlength=60) }}
-    {{ text_field("model", "Modelul", "Golf Plus, Leon, A8", required=True, maxlength=60) }}
-    {{ text_field("generation", "Generația", "Dacă o știi: Mk3, D5, 8P", maxlength=60) }}
-    {{ text_field("model_year", "Anul fabricației", "Din talon, nu de pe anunț", inputmode="numeric", maxlength=4) }}
-    {{ text_field("registration_number", "Numărul de înmatriculare", maxlength=20) }}
-    {{ text_field("vin", "Seria de șasiu (VIN)", "17 caractere, în talon la rubrica E", maxlength=17) }}
-  </section>
-
-  <section class="card">
-    <h2 class="card__title">Motorizare</h2>
-    {{ choice_group("fuel_type", "Combustibil", fuel_types) }}
-    {{ text_field("engine_code", "Codul motorului", "Din talon sau de pe capacul motorului: BXE, CDAB", maxlength=20) }}
-    {{ text_field("engine_displacement_cc", "Capacitatea cilindrică", "În centimetri cubi: 1896 pentru un 1.9", inputmode="numeric") }}
-    {{ text_field("power_hp", "Puterea", "În cai putere", inputmode="numeric") }}
-  </section>
-
-  <section class="card">
-    <h2 class="card__title">Transmisie</h2>
-    {{ choice_group("gearbox_type", "Tipul cutiei", gearbox_types) }}
-    {{ text_field("gearbox_gears", "Numărul de trepte", inputmode="numeric") }}
-    {{ choice_group("drivetrain", "Tracțiune", drivetrains) }}
-  </section>
-
-  <section class="card">
-    <h2 class="card__title">Echipare</h2>
-    <p class="muted">
-      Bifează ce are mașina. De aceste bifă depinde ce operațiuni îi apar în listă: fără
-      curea de distribuție bifată, nu vei primi niciodată o scadență de distribuție.
-    </p>
-    <div class="choices">
-      {% for item in equipment %}
-      <label class="choice">
-        <input type="checkbox" name="equipment" value="{{ item.value }}"
-               {% if item.value in values.get("equipment", []) %}checked{% endif %} />
-        <span class="choice__body">
-          <span class="choice__label">{{ item.label }}</span>
-          {% if item.note %}<span class="choice__note">{{ item.note }}</span>{% endif %}
-        </span>
-      </label>
-      {% endfor %}
-    </div>
-  </section>
-
-  <section class="card">
-    <h2 class="card__title">Kilometraj</h2>
-    {{ text_field("current_mileage_km", "Kilometrajul de acum", "Îl poți completa și mai târziu, dar fără el nu putem estima datele scadențelor", inputmode="numeric") }}
-    {{ text_field("annual_mileage_km", "Câți kilometri face pe an", "Aproximativ. Ajută la estimări până se strânge istoric", inputmode="numeric") }}
-    {{ date_field("first_registration_date", "Data primei înmatriculări") }}
-  </section>
-
-  <section class="card">
-    <h2 class="card__title">Notițe</h2>
-    <label class="field">
-      <span class="field__label">Orice altceva <span class="field__optional">opțional</span></span>
-      <textarea class="field__input field__input--tall" name="notes" rows="4">{{ values.get("notes", "") }}</textarea>
-      {% if errors.get("notes") %}<span class="field__error">{{ errors["notes"] }}</span>{% endif %}
-    </label>
-  </section>
-
+  {% include "vehicles/_form_body.html" %}
   <button class="button button--primary" type="submit">Salvează mașina</button>
 </form>
 {% endblock %}

@@ -136,6 +136,20 @@ records where the better figure came from — a page in the service book, a mech
 advice. Provenance applies to the owner's numbers as much as to the defaults, and a figure
 changed two years ago is otherwise impossible to account for.
 
+## When a car's description changes
+
+Editing the fuel, gearbox, drivetrain or equipment re-derives which catalogue items apply.
+Newly applicable ones are added; ones that no longer apply are switched off rather than
+deleted, so an interval the owner corrected and the note saying where it came from survive a
+change of mind. Nothing is switched back on automatically: a rule turned off deliberately must
+stay off, and the database does not record which of the two reasons applied.
+
+An odometer correction is not a new reading. Correcting downwards discards the readings above
+the new figure, because those are the mistaken ones and leaving them behind would keep
+distorting the average distance per day — the number that decides whether a warning arrives
+before a deadline or after it. A reading that is merely lower than the last one is refused
+outright; corrections belong on the edit page, where the consequence is stated.
+
 ## Interface decisions
 
 A field offers a list only where the application has to reason about the answer: fuel, gearbox,
@@ -220,7 +234,7 @@ tests/                test suite
 - [x] Data model, migrations and service catalogue
 - [x] Authentication and mobile-first layout
 - [x] Vehicles, odometer tracking, schedules generated per car
-- [ ] Editing a vehicle and adjusting its intervals
+- [x] Editing a vehicle and adjusting its intervals
 - [ ] Service history with attachments
 - [ ] Due-date engine
 - [ ] Insurance and inspection documents

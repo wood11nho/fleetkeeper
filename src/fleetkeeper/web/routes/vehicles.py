@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from fleetkeeper.inputs import OdometerInput, VehicleInput
 from fleetkeeper.models.garage import Garage
 from fleetkeeper.models.user import User
 from fleetkeeper.models.vehicle import Vehicle
@@ -13,13 +14,19 @@ from fleetkeeper.services import garages, vehicles
 from fleetkeeper.web import labels
 from fleetkeeper.web.dependencies import CurrentUser, DatabaseSession
 from fleetkeeper.web.formatting import thousands
-from fleetkeeper.web.forms import MileageForm, VehicleForm, parse, previous_values
+from fleetkeeper.web.forms import parse, parse_intervals, previous_values
 from fleetkeeper.web.templating import templates
 
 router = APIRouter(prefix="/masini")
 
 EXPIRED_FORM = "Formularul a expirat. Încearcă din nou."
 NO_GARAGE = "Alege garajul în care intră mașina."
+
+NEW_MILEAGE_HINT = "Îl poți completa și mai târziu, dar fără el nu putem estima datele scadențelor"
+EDIT_MILEAGE_HINT = (
+    "Corectează aici dacă valoarea salvată este greșită. O corectare în jos șterge citirile "
+    "mai mari, fiindcă acelea sunt cele greșite"
+)
 
 
 @router.get("", response_class=HTMLResponse)
@@ -37,30 +44,26 @@ def index(request: Request, db: DatabaseSession, user: CurrentUser) -> Response:
 
 @router.get("/adauga", response_class=HTMLResponse)
 def new(request: Request, db: DatabaseSession, user: CurrentUser) -> Response:
-    return _form_page(request, db, user, values={}, errors={})
+    return _form_page(request, db, user, "vehicles/new.html", NEW_MILEAGE_HINT, {}, {})
 
 
 @router.post("/adauga", response_class=HTMLResponse)
 async def create(request: Request, db: DatabaseSession, user: CurrentUser) -> Response:
     form = await request.form()
+    typed = previous_values(form, repeated=("equipment",))
 
     if not csrf.is_valid(request, str(form.get(csrf.FIELD_NAME, ""))):
         return _form_page(
-            request,
-            db,
-            user,
-            previous_values(form, repeated=("equipment",)),
-            {},
-            notice=EXPIRED_FORM,
+            request, db, user, "vehicles/new.html", NEW_MILEAGE_HINT, typed, {}, EXPIRED_FORM
         )
 
-    submitted, errors = parse(VehicleForm, form, repeated=("equipment",))
+    submitted, errors = parse(VehicleInput, form, repeated=("equipment",))
     garage = _chosen_garage(db, user, submitted)
     if garage is None and submitted is not None:
         errors["garage_id"] = NO_GARAGE
 
     if submitted is None or garage is None:
-        return _form_page(request, db, user, previous_values(form, repeated=("equipment",)), errors)
+        return _form_page(request, db, user, "vehicles/new.html", NEW_MILEAGE_HINT, typed, errors)
 
     vehicle = vehicles.create(db, garage, submitted, author=user.id)
     db.commit()
@@ -73,6 +76,90 @@ def detail(request: Request, db: DatabaseSession, user: CurrentUser, vehicle_id:
     return _detail_page(request, db, user, _owned_vehicle(db, user, vehicle_id))
 
 
+@router.get("/{vehicle_id}/editeaza", response_class=HTMLResponse)
+def edit(request: Request, db: DatabaseSession, user: CurrentUser, vehicle_id: int) -> Response:
+    vehicle = _owned_vehicle(db, user, vehicle_id)
+    return _form_page(
+        request,
+        db,
+        user,
+        "vehicles/edit.html",
+        EDIT_MILEAGE_HINT,
+        _as_form_values(vehicle),
+        {},
+        vehicle=vehicle,
+    )
+
+
+@router.post("/{vehicle_id}/editeaza", response_class=HTMLResponse)
+async def save(
+    request: Request, db: DatabaseSession, user: CurrentUser, vehicle_id: int
+) -> Response:
+    vehicle = _owned_vehicle(db, user, vehicle_id)
+    form = await request.form()
+    typed = previous_values(form, repeated=("equipment",))
+
+    if not csrf.is_valid(request, str(form.get(csrf.FIELD_NAME, ""))):
+        return _form_page(
+            request,
+            db,
+            user,
+            "vehicles/edit.html",
+            EDIT_MILEAGE_HINT,
+            typed,
+            {},
+            EXPIRED_FORM,
+            vehicle=vehicle,
+        )
+
+    submitted, errors = parse(VehicleInput, form, repeated=("equipment",))
+    if submitted is None:
+        return _form_page(
+            request,
+            db,
+            user,
+            "vehicles/edit.html",
+            EDIT_MILEAGE_HINT,
+            typed,
+            errors,
+            vehicle=vehicle,
+        )
+
+    vehicles.update(db, vehicle, submitted, author=user.id)
+    db.commit()
+
+    return RedirectResponse(f"/masini/{vehicle.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/{vehicle_id}/intervale", response_class=HTMLResponse)
+def intervals(
+    request: Request, db: DatabaseSession, user: CurrentUser, vehicle_id: int
+) -> Response:
+    return _intervals_page(request, db, user, _owned_vehicle(db, user, vehicle_id), {})
+
+
+@router.post("/{vehicle_id}/intervale", response_class=HTMLResponse)
+async def save_intervals(
+    request: Request, db: DatabaseSession, user: CurrentUser, vehicle_id: int
+) -> Response:
+    vehicle = _owned_vehicle(db, user, vehicle_id)
+    form = await request.form()
+
+    if not csrf.is_valid(request, str(form.get(csrf.FIELD_NAME, ""))):
+        return _intervals_page(request, db, user, vehicle, {}, notice=EXPIRED_FORM)
+
+    grouped = vehicles.rules_by_section(db, vehicle)
+    owned_ids = {rule.id for _, rules in grouped for rule in rules}
+    edits, problems = parse_intervals(form, owned_ids)
+    if problems:
+        return _intervals_page(request, db, user, vehicle, problems, submitted=form)
+
+    vehicles.apply_interval_edits(db, vehicle, edits)
+    db.commit()
+
+    return RedirectResponse(f"/masini/{vehicle.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.post("/{vehicle_id}/kilometraj", response_class=HTMLResponse)
 async def record_odometer(
     request: Request, db: DatabaseSession, user: CurrentUser, vehicle_id: int
@@ -83,7 +170,7 @@ async def record_odometer(
     if not csrf.is_valid(request, str(form.get(csrf.FIELD_NAME, ""))):
         return _detail_page(request, db, user, vehicle, notice=EXPIRED_FORM)
 
-    submitted, errors = parse(MileageForm, form)
+    submitted, errors = parse(OdometerInput, form)
     if submitted is None:
         return _detail_page(request, db, user, vehicle, notice=errors.get("mileage_km"))
 
@@ -103,8 +190,8 @@ async def record_odometer(
             vehicle,
             notice=(
                 "Kilometrajul nu poate scădea. Ultima valoare înregistrată este "
-                f"{thousands(refused.previous_reading)} km. Dacă s-a schimbat ceasul de bord, "
-                "corectează întâi datele mașinii."
+                f"{thousands(refused.previous_reading)} km. Dacă valoarea salvată este "
+                "greșită, corectează-o din Editează mașina."
             ),
         )
 
@@ -120,7 +207,7 @@ def _owned_vehicle(db: Session, user: User, vehicle_id: int) -> Vehicle:
     return vehicle
 
 
-def _chosen_garage(db: Session, user: User, submitted: VehicleForm | None) -> Garage | None:
+def _chosen_garage(db: Session, user: User, submitted: VehicleInput | None) -> Garage | None:
     if submitted is not None and submitted.garage_id is not None:
         return garages.garage_for(db, user, submitted.garage_id)
 
@@ -128,23 +215,56 @@ def _chosen_garage(db: Session, user: User, submitted: VehicleForm | None) -> Ga
     return owned[0] if len(owned) == 1 else None
 
 
+def _as_form_values(vehicle: Vehicle) -> dict[str, Any]:
+    """Fill the edit form from the stored vehicle, as the strings a form deals in."""
+    plain = {
+        "garage_id": vehicle.garage_id,
+        "name": vehicle.name,
+        "make": vehicle.make,
+        "model": vehicle.model,
+        "generation": vehicle.generation,
+        "model_year": vehicle.model_year,
+        "registration_number": vehicle.registration_number,
+        "vin": vehicle.vin,
+        "fuel_type": vehicle.fuel_type.value,
+        "engine_code": vehicle.engine_code,
+        "engine_displacement_cc": vehicle.engine_displacement_cc,
+        "power_hp": vehicle.power_hp,
+        "gearbox_type": vehicle.gearbox_type.value,
+        "gearbox_gears": vehicle.gearbox_gears,
+        "drivetrain": vehicle.drivetrain.value,
+        "first_registration_date": vehicle.first_registration_date,
+        "current_mileage_km": vehicle.current_mileage_km,
+        "annual_mileage_km": vehicle.annual_mileage_km,
+        "notes": vehicle.notes,
+    }
+    values: dict[str, Any] = {key: str(value) for key, value in plain.items() if value is not None}
+    values["equipment"] = list(vehicle.equipment)
+    return values
+
+
 def _form_page(
     request: Request,
     db: Session,
     user: User,
+    template: str,
+    mileage_hint: str,
     values: dict[str, Any],
     errors: dict[str, str],
     notice: str | None = None,
+    vehicle: Vehicle | None = None,
 ) -> Response:
     return templates.TemplateResponse(
         request,
-        "vehicles/new.html",
+        template,
         {
             "user": user,
+            "vehicle": vehicle,
             "garages": garages.garages_for(db, user),
             "values": values,
             "errors": errors,
             "notice": notice,
+            "mileage_hint": mileage_hint,
             "fuel_types": labels.FUEL_TYPES,
             "gearbox_types": labels.GEARBOX_TYPES,
             "drivetrains": labels.DRIVETRAINS,
@@ -178,4 +298,30 @@ def _detail_page(
             "source_labels": labels.INTERVAL_SOURCE_LABELS,
         },
         status_code=status.HTTP_400_BAD_REQUEST if notice else status.HTTP_200_OK,
+    )
+
+
+def _intervals_page(
+    request: Request,
+    db: Session,
+    user: User,
+    vehicle: Vehicle,
+    problems: dict[str, str],
+    notice: str | None = None,
+    submitted: Any = None,
+) -> Response:
+    return templates.TemplateResponse(
+        request,
+        "vehicles/intervals.html",
+        {
+            "user": user,
+            "vehicle": vehicle,
+            "sections": vehicles.rules_by_section(db, vehicle),
+            "problems": problems,
+            "notice": notice,
+            "submitted": submitted,
+            "section_labels": labels.SECTION_LABELS,
+            "source_labels": labels.INTERVAL_SOURCE_LABELS,
+        },
+        status_code=status.HTTP_400_BAD_REQUEST if (problems or notice) else status.HTTP_200_OK,
     )

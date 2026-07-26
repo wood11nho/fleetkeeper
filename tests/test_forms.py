@@ -2,8 +2,9 @@ from datetime import date
 
 from starlette.datastructures import FormData, UploadFile
 
+from fleetkeeper.inputs import OdometerInput, VehicleInput
 from fleetkeeper.models.enums import Drivetrain, Equipment, FuelType, GearboxType
-from fleetkeeper.web.forms import MileageForm, VehicleForm, parse, previous_values
+from fleetkeeper.web.forms import parse, parse_intervals, previous_values
 
 # FormData accepts uploads alongside text, so the pairs have to be typed as widely as it does.
 Field = tuple[str, str | UploadFile]
@@ -23,7 +24,7 @@ def submit(*extra: Field, base: list[Field] | None = None) -> FormData:
 
 
 def test_the_minimum_a_vehicle_needs_is_accepted() -> None:
-    vehicle, errors = parse(VehicleForm, submit())
+    vehicle, errors = parse(VehicleInput, submit())
 
     assert errors == {}
     assert vehicle is not None
@@ -34,7 +35,7 @@ def test_the_minimum_a_vehicle_needs_is_accepted() -> None:
 def test_untouched_optional_boxes_do_not_become_errors() -> None:
     """A browser submits an empty box as an empty string, which is not a number or a date."""
     vehicle, errors = parse(
-        VehicleForm,
+        VehicleInput,
         submit(("model_year", ""), ("power_hp", ""), ("first_registration_date", "")),
     )
 
@@ -48,28 +49,28 @@ def test_untouched_optional_boxes_do_not_become_errors() -> None:
 def test_a_missing_required_field_is_named_in_romanian() -> None:
     incomplete = [pair for pair in COMPLETE if pair[0] != "make"]
 
-    vehicle, errors = parse(VehicleForm, submit(base=incomplete))
+    vehicle, errors = parse(VehicleInput, submit(base=incomplete))
 
     assert vehicle is None
     assert errors == {"make": "Completează acest câmp."}
 
 
 def test_letters_in_a_number_are_explained_rather_than_ignored() -> None:
-    vehicle, errors = parse(VehicleForm, submit(("current_mileage_km", "230.000 km")))
+    vehicle, errors = parse(VehicleInput, submit(("current_mileage_km", "230.000 km")))
 
     assert vehicle is None
     assert "cifre" in errors["current_mileage_km"]
 
 
 def test_a_year_in_the_future_is_refused() -> None:
-    vehicle, errors = parse(VehicleForm, submit(("model_year", str(date.today().year + 5))))
+    vehicle, errors = parse(VehicleInput, submit(("model_year", str(date.today().year + 5))))
 
     assert vehicle is None
     assert errors["model_year"] == "Anul nu poate fi în viitor."
 
 
 def test_next_year_is_allowed_because_registrations_run_ahead() -> None:
-    vehicle, errors = parse(VehicleForm, submit(("model_year", str(date.today().year + 1))))
+    vehicle, errors = parse(VehicleInput, submit(("model_year", str(date.today().year + 1))))
 
     assert errors == {}
     assert vehicle is not None
@@ -77,7 +78,7 @@ def test_next_year_is_allowed_because_registrations_run_ahead() -> None:
 
 def test_every_ticked_equipment_box_is_kept() -> None:
     vehicle, errors = parse(
-        VehicleForm,
+        VehicleInput,
         submit(
             ("equipment", Equipment.TIMING_BELT.value),
             ("equipment", Equipment.AIR_CONDITIONING.value),
@@ -104,14 +105,109 @@ def test_a_rejected_form_comes_back_with_all_its_ticks() -> None:
 
 
 def test_an_odometer_reading_needs_a_number() -> None:
-    reading, errors = parse(MileageForm, FormData([("mileage_km", "")]))
+    reading, errors = parse(OdometerInput, FormData([("mileage_km", "")]))
 
     assert reading is None
     assert errors == {"mileage_km": "Completează acest câmp."}
 
 
 def test_a_negative_odometer_reading_is_refused() -> None:
-    reading, errors = parse(MileageForm, FormData([("mileage_km", "-5")]))
+    reading, errors = parse(OdometerInput, FormData([("mileage_km", "-5")]))
 
     assert reading is None
     assert "mai mic" in errors["mileage_km"]
+
+
+def test_an_edited_schedule_is_read_back_per_rule() -> None:
+    edits, problems = parse_intervals(
+        FormData(
+            [
+                ("present_1", "1"),
+                ("km_1", "10000"),
+                ("months_1", "12"),
+                ("enabled_1", "true"),
+                ("note_1", "carnet service pagina 212"),
+                ("present_2", "1"),
+                ("km_2", ""),
+                ("months_2", "24"),
+                ("enabled_2", "true"),
+            ]
+        ),
+        rule_ids={1, 2},
+    )
+
+    assert problems == {}
+    assert [edit.rule_id for edit in edits] == [1, 2]
+    assert edits[0].interval_km == 10_000
+    assert edits[0].source_note == "carnet service pagina 212"
+    assert edits[1].interval_km is None
+    assert edits[1].interval_months == 24
+
+
+def test_an_unticked_rule_is_switched_off_rather_than_lost() -> None:
+    edits, problems = parse_intervals(
+        FormData([("present_1", "1"), ("km_1", "10000"), ("months_1", "12")]), rule_ids={1}
+    )
+
+    assert problems == {}
+    assert edits[0].is_enabled is False
+    assert edits[0].interval_km == 10_000
+
+
+def test_a_rule_the_form_never_carried_is_left_alone() -> None:
+    """Otherwise a partial submission switches off every rule it failed to mention."""
+    edits, problems = parse_intervals(
+        FormData([("present_1", "1"), ("km_1", "10000"), ("enabled_1", "true")]),
+        rule_ids={1, 2, 3},
+    )
+
+    assert problems == {}
+    assert [edit.rule_id for edit in edits] == [1]
+
+
+def test_a_watched_rule_with_no_interval_at_all_is_refused() -> None:
+    """Watching an item with neither figure would promise a deadline that never arrives."""
+    edits, problems = parse_intervals(
+        FormData([("present_1", "1"), ("enabled_1", "true")]), rule_ids={1}
+    )
+
+    assert edits == []
+    assert "interval" in problems["km_1"]
+
+
+def test_thousands_separators_are_accepted_the_way_people_type_them() -> None:
+    edits, problems = parse_intervals(
+        FormData([("present_1", "1"), ("km_1", "15.000"), ("enabled_1", "true")]), rule_ids={1}
+    )
+
+    assert problems == {}
+    assert edits[0].interval_km == 15_000
+
+
+def test_a_zero_interval_is_refused() -> None:
+    edits, problems = parse_intervals(
+        FormData([("present_1", "1"), ("km_1", "0"), ("enabled_1", "true")]), rule_ids={1}
+    )
+
+    assert edits == []
+    assert "mai mare de zero" in problems["km_1"]
+
+
+def test_a_rule_belonging_to_another_vehicle_is_ignored() -> None:
+    """A stale tab must not be able to reach a schedule it does not own."""
+    edits, problems = parse_intervals(
+        FormData(
+            [
+                ("present_1", "1"),
+                ("km_1", "5000"),
+                ("enabled_1", "true"),
+                ("present_99", "1"),
+                ("km_99", "5000"),
+                ("enabled_99", "true"),
+            ]
+        ),
+        rule_ids={1},
+    )
+
+    assert problems == {}
+    assert [edit.rule_id for edit in edits] == [1]

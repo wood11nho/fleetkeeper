@@ -1,0 +1,32 @@
+{% extends "app.html" %}
+
+{% block title %}Editează {{ vehicle.name }} · FleetKeeper{% endblock %}
+
+{% block content %}
+<h1>Editează mașina</h1>
+<p class="lead">{{ vehicle.name }}</p>
+
+{% if notice %}
+<p class="notice notice--error" role="alert">{{ notice }}</p>
+{% elif errors %}
+<p class="notice notice--error" role="alert">
+  Câteva câmpuri au nevoie de atenție. Sunt marcate mai jos.
+</p>
+{% endif %}
+
+<p class="notice">
+  Dacă schimbi combustibilul, cutia, tracțiunea sau echiparea, lista de intervale se
+  actualizează: apar operațiunile care devin valabile, iar cele care nu mai au sens se sting.
+  Nu se șterge nimic, deci intervalele pe care le-ai reglat rămân dacă revii.
+</p>
+
+<form class="stack" method="post" action="/masini/{{ vehicle.id }}/editeaza">
+  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+  {% include "vehicles/_form_body.html" %}
+  <button class="button button--primary" type="submit">Salvează modificările</button>
+</form>
+
+<p class="card__footer">
+  <a href="/masini/{{ vehicle.id }}">Renunță și întoarce-te la fișa mașinii</a>
+</p>
+{% endblock %}

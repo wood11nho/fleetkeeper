@@ -1,86 +1,31 @@
-"""Form parsing for server-rendered pages.
+"""Turning submitted forms into validated input, or into sentences a person can act on.
 
 FastAPI can bind a form straight to a model, but a failure then leaves the visitor looking at
 a status code instead of their own half-filled form. These helpers validate by hand so a
-mistake comes back as a sentence next to the field that caused it, with everything else still
-typed in.
+mistake comes back beside the field that caused it, with everything else still typed in.
 """
 
-from datetime import date
-from typing import Annotated, Any
+from typing import Any
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    StringConstraints,
-    ValidationError,
-    field_validator,
-)
+from pydantic import BaseModel, ValidationError
 from pydantic_core import ErrorDetails
 from starlette.datastructures import FormData
 
-from fleetkeeper.models.enums import Drivetrain, Equipment, FuelType, GearboxType
+from fleetkeeper.inputs import IntervalInput
 
-ShortText = Annotated[str, StringConstraints(min_length=1, max_length=60)]
-OptionalText = Annotated[str, StringConstraints(max_length=60)]
-
-
-class VehicleForm(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    # Absent when the owner belongs to a single garage, which is the usual case; the route
-    # still checks membership rather than trusting whatever arrives here.
-    garage_id: int | None = None
-
-    name: ShortText
-    make: ShortText
-    model: ShortText
-    generation: OptionalText | None = None
-    model_year: Annotated[int, Field(ge=1900)] | None = None
-    registration_number: Annotated[str, StringConstraints(max_length=20)] | None = None
-    vin: Annotated[str, StringConstraints(max_length=17)] | None = None
-
-    fuel_type: FuelType
-    engine_code: Annotated[str, StringConstraints(max_length=20)] | None = None
-    engine_displacement_cc: Annotated[int, Field(ge=400, le=10_000)] | None = None
-    power_hp: Annotated[int, Field(ge=5, le=2_000)] | None = None
-
-    gearbox_type: GearboxType
-    gearbox_gears: Annotated[int, Field(ge=3, le=12)] | None = None
-    drivetrain: Drivetrain
-
-    equipment: list[Equipment] = Field(default_factory=list)
-
-    first_registration_date: date | None = None
-    current_mileage_km: Annotated[int, Field(ge=0, le=3_000_000)] | None = None
-    annual_mileage_km: Annotated[int, Field(ge=0, le=300_000)] | None = None
-    notes: Annotated[str, StringConstraints(max_length=2_000)] | None = None
-
-    @field_validator("model_year")
-    @classmethod
-    def not_from_the_future(cls, year: int | None) -> int | None:
-        # Next year is allowed: cars are registered ahead of their model year.
-        if year is not None and year > date.today().year + 1:
-            raise ValueError("year is in the future")
-        return year
+NOTE_LIMIT = 200
 
 
-class MileageForm(BaseModel):
-    mileage_km: Annotated[int, Field(ge=0, le=3_000_000)]
-    recorded_on: date | None = None
-
-
-def parse[FormModel: BaseModel](
-    model: type[FormModel],
+def parse[Model: BaseModel](
+    model: type[Model],
     form: FormData,
     *,
     repeated: tuple[str, ...] = (),
-) -> tuple[FormModel | None, dict[str, str]]:
+) -> tuple[Model | None, dict[str, str]]:
     """Validate submitted form data, returning either the value or a message per field.
 
     Empty fields are dropped rather than passed along, because a browser submits an untouched
-    optional box as an empty string and "" is not a number, a date, or nothing.
+    optional box as an empty string, and "" is not a number, a date, or nothing.
     """
     submitted: dict[str, Any] = {}
     for key in set(form.keys()):
@@ -95,6 +40,87 @@ def parse[FormModel: BaseModel](
         return model.model_validate(submitted), {}
     except ValidationError as invalid:
         return None, _explain(invalid)
+
+
+PRESENT_PREFIX = "present_"
+
+
+def parse_intervals(
+    form: FormData, rule_ids: set[int]
+) -> tuple[list[IntervalInput], dict[str, str]]:
+    """Read the schedule editing form, which has one row of fields per rule.
+
+    Only rules the form actually carried are touched, marked by a hidden field per row. An
+    unticked box and an absent row look identical otherwise, so a partial submission would
+    switch off every rule it failed to mention.
+
+    Ids the vehicle does not own are skipped rather than refused: a stale tab is a normal thing
+    to submit, and either way it must not reach another car's schedule.
+    """
+    edits: list[IntervalInput] = []
+    problems: dict[str, str] = {}
+
+    for rule_id in sorted(rule_ids):
+        if form.get(f"{PRESENT_PREFIX}{rule_id}") is None:
+            continue
+
+        enabled = form.get(f"enabled_{rule_id}") is not None
+        kilometres, kilometre_problem = _optional_count(form.get(f"km_{rule_id}"))
+        months, month_problem = _optional_count(form.get(f"months_{rule_id}"))
+        note = str(form.get(f"note_{rule_id}") or "").strip() or None
+
+        if kilometre_problem:
+            problems[f"km_{rule_id}"] = kilometre_problem
+        if month_problem:
+            problems[f"months_{rule_id}"] = month_problem
+        if note and len(note) > NOTE_LIMIT:
+            problems[f"note_{rule_id}"] = f"Cel mult {NOTE_LIMIT} de caractere."
+        if enabled and kilometres is None and months is None and not kilometre_problem:
+            problems[f"km_{rule_id}"] = (
+                "Pune un interval, în kilometri sau în luni, ori stinge operațiunea."
+            )
+
+        edits.append(
+            IntervalInput(
+                rule_id=rule_id,
+                interval_km=kilometres,
+                interval_months=months,
+                is_enabled=enabled,
+                source_note=note,
+            )
+        )
+
+    return ([] if problems else edits), problems
+
+
+def previous_values(form: FormData, *, repeated: tuple[str, ...] = ()) -> dict[str, Any]:
+    """What the visitor typed, so a rejected form comes back filled in rather than blank.
+
+    Repeated fields have to be read as lists; reading a set of ticked boxes as a single value
+    keeps only the last one, and the visitor gets their form back with most of their ticks
+    quietly removed.
+    """
+    kept: dict[str, Any] = {}
+    for key in set(form.keys()):
+        if key in repeated:
+            kept[key] = form.getlist(key)
+            continue
+        value = form.get(key)
+        if isinstance(value, str):
+            kept[key] = value
+    return kept
+
+
+def _optional_count(raw: Any) -> tuple[int | None, str | None]:
+    text = str(raw or "").strip().replace(".", "").replace(" ", "")
+    if not text:
+        return None, None
+    if not text.isdigit():
+        return None, "Scrie doar cifre, fără litere."
+    value = int(text)
+    if value <= 0:
+        return None, "Trebuie să fie mai mare de zero."
+    return value, None
 
 
 def _explain(invalid: ValidationError) -> dict[str, str]:
@@ -126,21 +152,3 @@ def _sentence(problem: ErrorDetails) -> str:
     if kind == "value_error":
         return "Anul nu poate fi în viitor."
     return "Valoarea nu este validă."
-
-
-def previous_values(form: FormData, *, repeated: tuple[str, ...] = ()) -> dict[str, Any]:
-    """What the visitor typed, so a rejected form comes back filled in rather than blank.
-
-    Repeated fields have to be read as lists; reading a set of ticked boxes as a single value
-    keeps only the last one, and the visitor gets their form back with most of their ticks
-    quietly removed.
-    """
-    kept: dict[str, Any] = {}
-    for key in set(form.keys()):
-        if key in repeated:
-            kept[key] = form.getlist(key)
-            continue
-        value = form.get(key)
-        if isinstance(value, str):
-            kept[key] = value
-    return kept
