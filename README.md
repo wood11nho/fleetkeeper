@@ -84,7 +84,31 @@ written at all.
 The service catalogue is reference data defined in `catalog/builtin.py` and installed by
 `fleetkeeper sync-catalog`. Each entry declares which fuel types, gearboxes, drivetrains
 and equipment it needs, so a manual gearbox is never offered a dual-clutch fluid change and
-a timing chain never asks for a belt.
+a timing chain never asks for a belt. Adding an item is a row in that list rather than a
+change to any logic, and a garage can add categories of its own.
+
+## Where the intervals come from
+
+A figure the manufacturer publishes and a figure a workshop finds reasonable are different
+claims, and presenting them identically invites the owner to trust the weaker one. Every
+interval therefore records its provenance, shown beside it in the interface:
+
+- **manufacturer** — from a published service schedule
+- **practice** — a widely used workshop convention, often where the manufacturer says
+  "lifetime"
+- **estimate** — a rough default with no authority behind it
+
+Items with no defensible figure carry no interval at all. Their explanation says what to
+look for instead, because a symptom is honest and an invented deadline is not.
+
+Wear parts are a separate kind: brake pads, dampers and tyres have no replacement schedule,
+so their interval is a cadence for *inspection* and replacement is recorded whenever
+measurement says it is due. A pad that lasts one summer of mountain driving and four years
+of commuting cannot be put in a calendar.
+
+A check constraint refuses to store an interval without a source, which makes the rule
+impossible to forget rather than merely documented. None of these defaults is authoritative
+for a specific engine code, and all of them are editable per vehicle.
 
 ## Development
 

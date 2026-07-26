@@ -45,6 +45,7 @@ def _columns(definition: CategoryDefinition, sort_order: int) -> dict[str, Any]:
         "kind": definition.kind,
         "default_interval_km": definition.interval_km,
         "default_interval_months": definition.interval_months,
+        "interval_source": definition.source,
         "requires_fuel_types": [item.value for item in definition.fuel_types],
         "requires_gearbox_types": [item.value for item in definition.gearbox_types],
         "requires_drivetrains": [item.value for item in definition.drivetrains],

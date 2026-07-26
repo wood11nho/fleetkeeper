@@ -2,7 +2,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstrai
 from sqlalchemy.orm import Mapped, mapped_column
 
 from fleetkeeper.models.base import Base, StringArray, TimestampMixin, enum_column
-from fleetkeeper.models.enums import CategoryKind, CategorySection
+from fleetkeeper.models.enums import CategoryKind, CategorySection, IntervalSource
 from fleetkeeper.models.vehicle import Vehicle
 
 
@@ -27,6 +27,13 @@ class ServiceCategory(Base, TimestampMixin):
             "default_interval_months is null or default_interval_months > 0",
             name="positive_month_interval",
         ),
+        # An interval with no stated source is the thing this design exists to prevent:
+        # a number the owner cannot weigh. The database refuses to store one.
+        CheckConstraint(
+            "(default_interval_km is null and default_interval_months is null)"
+            " = (interval_source is null)",
+            name="interval_needs_a_source",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -39,6 +46,7 @@ class ServiceCategory(Base, TimestampMixin):
 
     default_interval_km: Mapped[int | None]
     default_interval_months: Mapped[int | None]
+    interval_source: Mapped[IntervalSource | None] = mapped_column(enum_column(IntervalSource))
 
     requires_fuel_types: Mapped[StringArray]
     requires_gearbox_types: Mapped[StringArray]

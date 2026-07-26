@@ -51,10 +51,36 @@ class CategorySection(StrEnum):
 
 
 class CategoryKind(StrEnum):
-    """Maintenance items recur on an interval; documents expire on a fixed date."""
+    """How a deadline for this kind of item comes about."""
 
+    # Replaced or serviced on a schedule: oil, filters, timing belt.
     MAINTENANCE = "maintenance"
+
+    # Wear parts, which have no honest replacement schedule. Brake pads last one summer
+    # of mountain driving or four years of commuting, so the interval says how often to
+    # look, and replacement is recorded whenever measurement says it is due.
+    INSPECTION = "inspection"
+
+    # Expires on a printed date: insurance, roadworthiness, road tax.
     DOCUMENT = "document"
+
+
+class IntervalSource(StrEnum):
+    """Where an interval comes from, shown next to it so its weight is visible.
+
+    A figure the manufacturer publishes and a figure someone in a workshop finds
+    reasonable are both useful, but they are not the same claim, and presenting them
+    identically invites the owner to trust the weaker one too much.
+    """
+
+    # Published service schedule for this class of engine.
+    MANUFACTURER = "manufacturer"
+
+    # Widely used workshop convention, often where the manufacturer says "lifetime".
+    PRACTICE = "practice"
+
+    # A rough default with no authority behind it. Verify by measurement or manual.
+    ESTIMATE = "estimate"
 
 
 class MileageSource(StrEnum):

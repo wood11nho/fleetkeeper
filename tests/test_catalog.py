@@ -53,6 +53,40 @@ def test_builtin_codes_are_unique() -> None:
     assert duplicates == []
 
 
+def test_every_interval_states_where_it_came_from() -> None:
+    for definition in BUILTIN_CATEGORIES:
+        has_interval = definition.interval_km is not None or definition.interval_months is not None
+
+        assert has_interval == (definition.source is not None), definition.code
+
+
+def test_wear_parts_are_inspected_rather_than_scheduled() -> None:
+    """A replacement interval for a brake pad is a guess dressed up as a deadline."""
+    wear_parts = {
+        "placute_fata",
+        "placute_spate",
+        "discuri_fata",
+        "discuri_spate",
+        "amortizoare",
+        "bucse_articulatii",
+        "rulmenti_roata",
+        "perne_suspensie",
+        "anvelope_vara",
+        "anvelope_iarna",
+        "baterie",
+    }
+    by_code = {definition.code: definition for definition in BUILTIN_CATEGORIES}
+
+    for code in wear_parts:
+        assert by_code[code].kind is CategoryKind.INSPECTION, code
+
+
+def test_an_inspection_says_how_often_to_look() -> None:
+    for definition in BUILTIN_CATEGORIES:
+        if definition.kind is CategoryKind.INSPECTION:
+            assert definition.interval_km or definition.interval_months, definition.code
+
+
 def test_documents_expire_on_a_date_rather_than_an_interval() -> None:
     documents = [c for c in BUILTIN_CATEGORIES if c.kind is CategoryKind.DOCUMENT]
 
