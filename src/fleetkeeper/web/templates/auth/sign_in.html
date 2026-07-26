@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Autentificare · FleetKeeper{% endblock %}
+
+{% block layout %}
+<main class="page page--narrow">
+  <h1>FleetKeeper</h1>
+  <p class="lead">Evidența întreținerii pentru mașinile familiei.</p>
+
+  {% if error %}
+  <p class="notice notice--error" role="alert">{{ error }}</p>
+  {% endif %}
+
+  <form class="stack" method="post" action="/autentificare">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+    <input type="hidden" name="next" value="{{ next }}" />
+
+    <label class="field">
+      <span class="field__label">Adresă de email</span>
+      <input
+        class="field__input"
+        type="email"
+        name="email"
+        value="{{ email }}"
+        inputmode="email"
+        autocomplete="username"
+        autocapitalize="none"
+        spellcheck="false"
+        required
+        autofocus
+      />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Parolă</span>
+      <input
+        class="field__input"
+        type="password"
+        name="password"
+        autocomplete="current-password"
+        required
+      />
+    </label>
+
+    <label class="checkbox">
+      <input type="checkbox" name="remember" value="true" checked />
+      <span>Ține-mă minte 30 de zile</span>
+    </label>
+
+    <button class="button button--primary" type="submit">Intră în cont</button>
+  </form>
+</main>
+{% endblock %}

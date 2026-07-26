@@ -35,6 +35,10 @@ class Settings(BaseSettings):
 
     database_url: DatabaseUrl
 
+    # Cookies are only sent over HTTPS in production. Left off by default so that the
+    # development server on plain http can still sign you in.
+    secure_cookies: bool = False
+
     # All dates shown to the user and all reminder schedules are anchored to
     # Romanian local time, regardless of where the container happens to run.
     timezone: str = "Europe/Bucharest"

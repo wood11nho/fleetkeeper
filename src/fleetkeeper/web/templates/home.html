@@ -1,6 +1,26 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
+
+{% block title %}Acasă · FleetKeeper{% endblock %}
 
 {% block content %}
-<h1>FleetKeeper</h1>
-<p>Aplicația pornește corect. Versiunea {{ version }}.</p>
+<h1>Salut, {{ user.full_name.split()[0] }}</h1>
+
+{% if garages %}
+  {% for garage in garages %}
+  <section class="card">
+    <h2 class="card__title">{{ garage.name }}</h2>
+    <p class="muted">Încă nu sunt mașini în acest garaj.</p>
+  </section>
+  {% endfor %}
+{% else %}
+<p class="notice">Nu ești membru în niciun garaj.</p>
+{% endif %}
+
+<section class="card">
+  <h2 class="card__title">Ce urmează</h2>
+  <p class="muted">
+    Adăugarea mașinilor și lista de scadențe vin la pasul următor. Deocamdată contul și
+    garajul sunt gata.
+  </p>
+</section>
 {% endblock %}

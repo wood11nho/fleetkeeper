@@ -12,6 +12,7 @@ from fleetkeeper.models.fuel import FuelLog, MileageReading
 from fleetkeeper.models.garage import Garage, GarageInvitation, GarageMember
 from fleetkeeper.models.maintenance import MaintenanceRule, ServiceEvent, ServiceEventItem
 from fleetkeeper.models.operations import JobRun, NotificationLog
+from fleetkeeper.models.session import UserSession
 from fleetkeeper.models.user import User
 from fleetkeeper.models.vehicle import Vehicle
 
@@ -30,6 +31,7 @@ __all__ = [
     "ServiceEvent",
     "ServiceEventItem",
     "User",
+    "UserSession",
     "Vehicle",
     "VehicleDocument",
 ]

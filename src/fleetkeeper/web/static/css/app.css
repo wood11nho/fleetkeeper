@@ -4,6 +4,7 @@
   color-scheme: light dark;
 
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --text-small: 0.9375rem;
   --text-base: 1.0625rem;
   --text-lead: 1.1875rem;
   --text-title: 1.75rem;
@@ -13,28 +14,39 @@
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
 
   --radius: 0.625rem;
-  --touch-target: 2.75rem;
+  /* Comfortably above the 44px minimum, because the target is a thumb on a phone held in
+     one hand, not a mouse pointer. */
+  --touch-target: 3rem;
 
   --surface: #ffffff;
   --surface-sunken: #f4f5f7;
-  --border: #d8dbe0;
+  --border: #cfd4da;
+  --border-strong: #8b929b;
   --ink: #16191d;
-  --ink-muted: #5a616b;
-  --accent: #1f5fa8;
+  --ink-muted: #545b64;
+  --accent: #17518f;
+  --accent-ink: #ffffff;
+  --danger: #a3271f;
+  --danger-surface: #fdeceb;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --surface: #16191d;
-    --surface-sunken: #1e2227;
-    --border: #333941;
-    --ink: #eceef1;
-    --ink-muted: #a0a7b1;
+    --surface: #1b1f24;
+    --surface-sunken: #12151a;
+    --border: #343b44;
+    --border-strong: #6c757f;
+    --ink: #eef0f3;
+    --ink-muted: #a8b0ba;
     --accent: #6fa8e8;
+    --accent-ink: #10161d;
+    --danger: #f4a19a;
+    --danger-surface: #3a1d1a;
   }
 }
 
@@ -53,18 +65,165 @@ body {
   line-height: var(--line-height);
 }
 
-.page {
-  max-width: 48rem;
-  margin: 0 auto;
-  padding: var(--space-6) var(--space-4);
+/* A single visible focus treatment everywhere. Keyboard and switch users need to see where
+   they are, and the browser default disappears against our accent colour. */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+h1,
+h2 {
+  line-height: 1.25;
 }
 
 h1 {
   margin: 0 0 var(--space-4);
   font-size: var(--text-title);
-  line-height: 1.25;
 }
 
 a {
   color: var(--accent);
+}
+
+.page {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-8);
+}
+
+.page--narrow {
+  max-width: 26rem;
+}
+
+.lead {
+  margin: 0 0 var(--space-6);
+  color: var(--ink-muted);
+  font-size: var(--text-lead);
+}
+
+.muted {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+.stack > * + * {
+  margin-top: var(--space-5);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar__brand {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.topbar__action {
+  margin: 0;
+}
+
+.card {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.card__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lead);
+}
+
+.field {
+  display: block;
+}
+
+.field__label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+
+.field__input {
+  display: block;
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  /* 17px or larger keeps iOS from zooming in when a field is focused, which on a small
+     screen leaves the rest of the form off to one side. */
+  font-family: inherit;
+  font-size: var(--text-base);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target);
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 1.5rem;
+  height: 1.5rem;
+  accent-color: var(--accent);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-5);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button--primary {
+  width: 100%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.button--quiet {
+  min-height: 2.5rem;
+  padding: 0 var(--space-4);
+  font-size: var(--text-small);
+  font-weight: 500;
+}
+
+.notice {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.notice--error {
+  color: var(--danger);
+  background: var(--danger-surface);
+  border-color: var(--danger);
+  border-left-color: var(--danger);
 }

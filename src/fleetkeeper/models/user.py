@@ -19,3 +19,8 @@ class User(Base, TimestampMixin):
     is_platform_admin: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
 
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # The application is reachable from the open internet with two accounts on it, so a
+    # password guessing attempt would otherwise be limited only by network speed.
+    failed_login_count: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

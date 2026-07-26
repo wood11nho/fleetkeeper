@@ -1,9 +1,15 @@
-from fastapi import FastAPI
+from collections.abc import Awaitable, Callable
+from urllib.parse import quote
+
+from fastapi import FastAPI, Request, status
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from fleetkeeper import __version__
 from fleetkeeper.config import Settings, get_settings
-from fleetkeeper.web.routes import health, home
+from fleetkeeper.security import csrf
+from fleetkeeper.web.dependencies import NotSignedInError
+from fleetkeeper.web.routes import auth, health, home
 from fleetkeeper.web.templating import STATIC_DIR
 
 
@@ -27,6 +33,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(home.router)
+
+    @app.middleware("http")
+    async def ensure_csrf_cookie(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        response = await call_next(request)
+        if csrf.COOKIE_NAME not in request.cookies:
+            csrf.attach(response, csrf.token_for(request), secure=settings.secure_cookies)
+        return response
+
+    @app.exception_handler(NotSignedInError)
+    def show_sign_in_form(request: Request, exception: Exception) -> Response:
+        requested = (
+            exception.requested_path if isinstance(exception, NotSignedInError) else auth.HOME_PATH
+        )
+        return RedirectResponse(
+            f"{auth.SIGN_IN_PATH}?next={quote(requested)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     return app

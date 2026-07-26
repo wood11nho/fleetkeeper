@@ -55,12 +55,17 @@ Copy the example configuration and point it at a PostgreSQL database:
 cp .env.example .env
 ```
 
-Create the schema and install the service catalogue:
+Create the schema, install the service catalogue and make yourself an account:
 
 ```bash
 alembic upgrade head
 fleetkeeper sync-catalog
+fleetkeeper create-user
 ```
+
+`create-user` prompts for a name, an address, a password and a garage. It is interactive
+because a password given as a command line argument survives in the shell history and is
+visible in the process list while it runs.
 
 Run the development server:
 
@@ -120,6 +125,28 @@ records where the better figure came from — a page in the service book, a mech
 advice. Provenance applies to the owner's numbers as much as to the defaults, and a figure
 changed two years ago is otherwise impossible to account for.
 
+## Signing in
+
+Passwords are hashed with bcrypt. Anything longer than bcrypt's 72 byte limit is refused
+rather than accepted and silently truncated, because a truncated passphrase protects only
+its beginning while looking like it protects all of it.
+
+Sessions are rows in the database, not signed cookies, so they can be ended from the server:
+a phone left in a taxi is a realistic problem and a cookie valid for thirty days cannot be
+taken back. Only the digest of each session token is stored, so a leaked backup yields
+nothing that can be used to sign in. A plain digest is correct here — bcrypt exists to make
+guessable secrets expensive to attack, and a 256 bit random token is not guessable.
+
+Repeated failures lock an account for fifteen minutes. Two accounts reachable from the open
+internet would otherwise be limited only by network speed. A sign-in attempt against an
+unknown address still spends the time a real check would take, so the response cannot be used
+to find out which addresses have accounts.
+
+Forms are protected against cross-site request forgery by the double submit cookie method,
+which needs no server state — useful for the sign-in form, where there is no session to keep
+a token in yet. A context processor supplies the token to every template so no route has to
+remember it.
+
 ## Development
 
 ```bash
@@ -141,6 +168,7 @@ src/fleetkeeper/
     cli.py            administrative commands
     models/           SQLAlchemy models, one module per area
     catalog/          the built-in service catalogue and its installer
+    security/         passwords, sessions, sign-in throttling, CSRF
     web/              routes, templates, static assets
 migrations/           Alembic revisions
 tests/                test suite
@@ -150,7 +178,7 @@ tests/                test suite
 
 - [x] Project skeleton, tooling, continuous integration
 - [x] Data model, migrations and service catalogue
-- [ ] Authentication and mobile-first layout
+- [x] Authentication and mobile-first layout
 - [ ] Vehicles and odometer tracking
 - [ ] Service history with attachments
 - [ ] Due-date engine
