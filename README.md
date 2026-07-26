@@ -75,6 +75,17 @@ uvicorn --factory fleetkeeper.main:create_app --reload
 
 The app is then available at http://127.0.0.1:8000.
 
+To try it on a phone, uvicorn has to listen on every interface rather than only on the
+loopback address, and the phone has to be told the machine's address on the network — 127.0.0.1
+means "this device", so a phone asking for it looks at itself:
+
+```bash
+uvicorn --factory fleetkeeper.main:create_app --host 0.0.0.0 --port 8000
+```
+
+Anyone on the same network can then reach it, which is worth remembering before doing this
+somewhere other than home.
+
 ## Data model
 
 Vehicles, service history, documents and fuel logs all belong to a *garage*, and a user
