@@ -8,6 +8,17 @@ for instead: a wear part gets an inspection cadence, and a symptom-driven job ge
 None of this is authoritative for a specific engine code. The explanations name the range
 that is commonly quoted and point at the car's own service plan, and every interval is
 editable per vehicle once a car is added.
+
+The Romanian legal obligations are the exception: those are public and checkable, and the
+explanations state them precisely. Sources, verified July 2026:
+
+- roadworthiness inspection intervals: Law 260/2017 amending OG 81/2000, art. 3
+  https://legislatie.just.ro/Public/DetaliiDocumentAfis/196038
+- road tax categories and validity periods: OG 15/2002
+- winter tyres: OUG 195/2002, the road traffic code
+- winter tyre dates: RAR, on the absence of any calendar deadline
+- third-party insurance periods: ASF norms on motor liability insurance
+- LPG tank lifetime: RAR guidance on LPG installations
 """
 
 from dataclasses import dataclass
@@ -62,21 +73,21 @@ DOCUMENTS = (
         name="Asigurare RCA",
         section=CategorySection.DOCUMENTS,
         kind=CategoryKind.DOCUMENT,
-        hint="Obligatorie prin lege. Se poate încheia pe 1, 6 sau 12 luni, iar scadența este data trecută pe poliță — o folosim pe aceea, nu o calculăm noi.",
+        hint="Obligatorie prin lege. Se poate încheia pe orice perioadă între 1 și 12 luni, în multipli de o lună. Scadența este data trecută pe poliță — o folosim pe aceea, nu o calculăm noi. Dacă mașina apare fără RCA valabil mai mult de 90 de zile, înmatricularea poate fi suspendată.",
     ),
     CategoryDefinition(
         code="itp",
         name="Inspecție tehnică periodică (ITP)",
         section=CategorySection.DOCUMENTS,
         kind=CategoryKind.DOCUMENT,
-        hint="Obligatorie prin lege. La autoturisme cadența este de regulă la 2 ani și devine anuală pentru mașinile vechi, dar regulile s-au schimbat în timp. Scadența pe care o urmărim este data următoarei inspecții trecută pe fișa ITP.",
+        hint="Obligatorie prin lege. Pentru autoturismele cu cel mult 8 locuri pe scaune în afara conducătorului: la 2 ani, respectiv anual pentru mașinile cu o vechime de cel puțin 12 ani. O mașină nouă la prima înmatriculare în România merge la prima inspecție la 3 ani. Scadența pe care o urmărim este data trecută pe fișa ITP.",
     ),
     CategoryDefinition(
         code="rovinieta",
         name="Rovinietă",
         section=CategorySection.DOCUMENTS,
         kind=CategoryKind.DOCUMENT,
-        hint="Obligatorie pe drumurile naționale și autostrăzi. Se cumpără pe zile, luni sau un an; scadența este sfârșitul perioadei plătite.",
+        hint="Obligatorie pe drumurile naționale și pe autostrăzi, nu pe drumurile județene sau locale. Pentru autoturisme se cumpără pe 1 zi, 10 zile, 30 de zile, 60 de zile sau 12 luni. Scadența este sfârșitul perioadei plătite.",
     ),
     CategoryDefinition(
         code="casco",
@@ -94,25 +105,25 @@ DOCUMENTS = (
     ),
     CategoryDefinition(
         code="verificare_gpl",
-        name="Verificare instalație GPL",
+        name="Rezervor GPL (valabilitate)",
         section=CategorySection.DOCUMENTS,
         kind=CategoryKind.DOCUMENT,
         equipment=(Equipment.LPG_SYSTEM,),
-        hint="Verificare periodică obligatorie pentru instalațiile de gaz, fără care nu se obține ITP-ul. Cadența și scadența sunt cele din documentul eliberat la verificare.",
+        hint="Rezervorul are o durată de viață de maximum 10 ani de la data fabricației, ștanțată pe el. Se verifică la ITP, iar cu rezervorul expirat mașina este respinsă. Înlocuirea se face numai în ateliere autorizate RAR. Treci data fabricației ca început și aceeași dată plus 10 ani ca expirare.",
     ),
     CategoryDefinition(
         code="extinctor",
         name="Extinctor",
         section=CategorySection.DOCUMENTS,
         kind=CategoryKind.DOCUMENT,
-        hint="Data de expirare este inscripționată pe corpul extinctorului. Se verifică la ITP.",
+        hint="Obligatoriu în dotarea mașinii, împreună cu trusa medicală și două triunghiuri reflectorizante. Data de expirare este inscripționată pe corp și se verifică la ITP.",
     ),
     CategoryDefinition(
         code="kit_prim_ajutor",
-        name="Kit de prim ajutor",
+        name="Trusă medicală de prim ajutor",
         section=CategorySection.DOCUMENTS,
         kind=CategoryKind.DOCUMENT,
-        hint="Expiră, la fel ca medicamentele din el. Data este pe ambalaj.",
+        hint="Obligatorie în dotarea mașinii. Expiră, la fel ca medicamentele din ea, iar conținutul minim este stabilit prin ordin de ministru. Data este pe ambalaj.",
     ),
 )
 
@@ -383,7 +394,7 @@ RUNNING_GEAR = (
         kind=CategoryKind.INSPECTION,
         interval_months=12,
         source=IntervalSource.PRACTICE,
-        hint="Minimul legal este același 1,6 mm, dar sub 4 mm o anvelopă de iarnă nu mai face ce trebuie pe zăpadă. Verifică și data DOT.",
+        hint="Minimul legal este același 1,6 mm, dar sub 4 mm o anvelopă de iarnă nu mai face ce trebuie pe zăpadă. Verifică și data DOT. Sunt obligatorii prin lege atunci când drumul public este acoperit cu zăpadă, gheață sau polei — legea nu prevede o dată calendaristică, ci o condiție de drum.",
     ),
     CategoryDefinition(
         code="schimb_sezonier_anvelope",
@@ -391,7 +402,7 @@ RUNNING_GEAR = (
         section=CategorySection.RUNNING_GEAR,
         interval_months=6,
         source=IntervalSource.PRACTICE,
-        hint="Primăvara și toamna, orientativ în jurul pragului de 7 grade Celsius, sub care cauciucul de vară se întărește. În România, pe drumuri acoperite cu zăpadă sau gheață, anvelopele de iarnă sunt obligatorii prin lege.",
+        hint="Primăvara și toamna, orientativ în jurul pragului de 7 grade Celsius, sub care cauciucul de vară se întărește. Atenție, cadența de 6 luni este doar un reper practic: obligația legală nu ține de calendar, ci de starea drumului, deci pe zăpadă sau polei trebuie să ai deja anvelopele de iarnă montate.",
     ),
     CategoryDefinition(
         code="geometrie",

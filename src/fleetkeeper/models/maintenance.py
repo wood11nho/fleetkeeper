@@ -49,6 +49,11 @@ class MaintenanceRule(Base, TimestampMixin):
     interval_months: Mapped[int | None]
     is_enabled: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
 
+    # Where the owner's own figure came from: "manual pagina 212", "mecanicul Ionescu".
+    # The catalogue records the provenance of its defaults; this records the provenance of
+    # the correction, so a number changed two years ago can still be accounted for.
+    source_note: Mapped[str | None] = mapped_column(String(200))
+
     category: Mapped[ServiceCategory] = relationship()
 
 

@@ -110,6 +110,16 @@ A check constraint refuses to store an interval without a source, which makes th
 impossible to forget rather than merely documented. None of these defaults is authoritative
 for a specific engine code, and all of them are editable per vehicle.
 
+Romanian legal obligations are the exception. Inspection intervals, road tax validity
+periods, insurance terms, the winter tyre rule and the lifetime of an LPG tank are public
+and checkable, so those explanations state them precisely and the sources are listed at the
+top of `catalog/builtin.py`.
+
+When an owner corrects an interval for their own car, `maintenance_rules.source_note`
+records where the better figure came from — a page in the service book, a mechanic's
+advice. Provenance applies to the owner's numbers as much as to the defaults, and a figure
+changed two years ago is otherwise impossible to account for.
+
 ## Development
 
 ```bash

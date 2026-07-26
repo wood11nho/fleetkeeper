@@ -15,10 +15,12 @@ from fleetkeeper.database import get_session_factory
 
 def sync_catalog() -> int:
     with get_session_factory()() as session:
-        created, updated = sync_builtin_categories(session)
+        result = sync_builtin_categories(session)
         session.commit()
 
-    print(f"catalogue synchronised: {created} created, {updated} updated")
+    print(f"catalogue synchronised: {result.created} created, {result.updated} updated")
+    if result.retired:
+        print(f"no longer defined in code, left in place: {', '.join(result.retired)}")
     return 0
 
 

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select
@@ -7,7 +8,14 @@ from fleetkeeper.catalog.builtin import BUILTIN_CATEGORIES, CategoryDefinition
 from fleetkeeper.models.catalog import ServiceCategory
 
 
-def sync_builtin_categories(session: Session) -> tuple[int, int]:
+@dataclass(frozen=True, slots=True)
+class SyncResult:
+    created: int
+    updated: int
+    retired: tuple[str, ...]
+
+
+def sync_builtin_categories(session: Session) -> SyncResult:
     """Bring the built-in catalogue rows in line with the definitions in code.
 
     Safe to run as often as you like: a category is identified by its code, so correcting
@@ -15,7 +23,9 @@ def sync_builtin_categories(session: Session) -> tuple[int, int]:
     disturbing a garage's own additions, and without rewriting the per-vehicle intervals
     that were once derived from these defaults.
 
-    Returns how many rows were created and how many were changed.
+    Codes that exist in the database but no longer in code are reported rather than
+    deleted. Service history may point at them, and a category nobody should pick again is
+    a smaller problem than a delete that takes recorded work with it.
     """
     existing = {
         category.code: category
@@ -35,7 +45,8 @@ def sync_builtin_categories(session: Session) -> tuple[int, int]:
             updated += 1
 
     session.flush()
-    return created, updated
+    defined = {definition.code for definition in BUILTIN_CATEGORIES}
+    return SyncResult(created, updated, tuple(sorted(existing.keys() - defined)))
 
 
 def _columns(definition: CategoryDefinition, sort_order: int) -> dict[str, Any]:
