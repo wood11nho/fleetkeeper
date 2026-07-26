@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from functools import lru_cache
 
 from sqlalchemy import Engine, create_engine
@@ -20,6 +19,18 @@ def create_database_engine(url: str) -> Engine:
     )
 
 
+def create_session_factory(url: str) -> sessionmaker[Session]:
+    return sessionmaker(
+        bind=create_database_engine(url),
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+
+# Below is for the command line tools and for Alembic, which legitimately have nothing but
+# the environment to go on. The web application never uses these: it is handed its settings
+# when it is built and keeps its own session factory, so that answering a request never
+# depends on what happens to be in the environment at the time.
 @lru_cache
 def get_engine() -> Engine:
     return create_database_engine(get_settings().database_url)
@@ -28,8 +39,3 @@ def get_engine() -> Engine:
 @lru_cache
 def get_session_factory() -> sessionmaker[Session]:
     return sessionmaker(bind=get_engine(), autoflush=False, expire_on_commit=False)
-
-
-def get_session() -> Iterator[Session]:
-    with get_session_factory()() as session:
-        yield session

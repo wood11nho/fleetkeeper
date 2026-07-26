@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from fleetkeeper import __version__
 from fleetkeeper.config import Settings, get_settings
+from fleetkeeper.database import create_session_factory
 from fleetkeeper.security import csrf
 from fleetkeeper.web.dependencies import NotSignedInError
 from fleetkeeper.web.routes import auth, health, home
@@ -30,6 +31,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url="/api/openapi.json" if settings.debug else None,
     )
+
+    # Routes read their configuration and their database from here rather than resolving
+    # either one per request, so an application answers exactly as it was built, wherever it
+    # happens to be running. Building an engine opens no connection.
+    app.state.settings = settings
+    app.state.session_factory = create_session_factory(settings.database_url)
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(health.router)

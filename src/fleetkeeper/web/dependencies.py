@@ -1,10 +1,10 @@
+from collections.abc import Iterator
 from typing import Annotated
 
 from fastapi import Depends, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from fleetkeeper.config import Settings, get_settings
-from fleetkeeper.database import get_session
+from fleetkeeper.config import Settings
 from fleetkeeper.models.user import User
 from fleetkeeper.security import sessions
 
@@ -20,8 +20,31 @@ class NotSignedInError(Exception):
         self.requested_path = requested_path
 
 
+def get_session(request: Request) -> Iterator[Session]:
+    """A database session from the factory this application was built with.
+
+    Same reasoning as the settings below: an application that resolves its own database
+    connection per request behaves differently depending on the environment it happens to be
+    answering in.
+    """
+    factory: sessionmaker[Session] = request.app.state.session_factory
+    with factory() as session:
+        yield session
+
+
+def get_configuration(request: Request) -> Settings:
+    """The settings this application was built with.
+
+    Deliberately not a fresh read of the environment. Doing that during a request means the
+    application behaves differently depending on whether a .env file happens to sit in the
+    working directory, which is a difference between a developer's machine and a server.
+    """
+    settings: Settings = request.app.state.settings
+    return settings
+
+
 DatabaseSession = Annotated[Session, Depends(get_session)]
-Configuration = Annotated[Settings, Depends(get_settings)]
+Configuration = Annotated[Settings, Depends(get_configuration)]
 
 
 def signed_in_user(request: Request, db: DatabaseSession) -> User | None:

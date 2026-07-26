@@ -136,6 +136,18 @@ records where the better figure came from — a page in the service book, a mech
 advice. Provenance applies to the owner's numbers as much as to the defaults, and a figure
 changed two years ago is otherwise impossible to account for.
 
+## Configuration
+
+An application is handed its settings when it is built and keeps its own session factory.
+Nothing in the request path reads the environment or resolves a database connection of its
+own, because an application that does behaves differently depending on whether a `.env` file
+happens to sit in the working directory — which is precisely the difference between a
+developer's machine and a server. The command line tools and Alembic do read the
+environment, since it is all they have.
+
+The test suite runs with the environment stripped and the working directory moved, so that
+difference cannot reappear unnoticed.
+
 ## Signing in
 
 Passwords are hashed with bcrypt. Anything longer than bcrypt's 72 byte limit is refused
