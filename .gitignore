@@ -7,6 +7,10 @@ dist/
 .env
 .env.local
 
+# Notes written for me, in Romanian, at a level of detail that belongs beside the work rather
+# than in front of whoever opens the repository.
+docs-interne/
+
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
