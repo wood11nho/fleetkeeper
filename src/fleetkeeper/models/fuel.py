@@ -9,6 +9,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -56,11 +57,15 @@ class FuelLog(Base, TimestampMixin):
 
 
 class MileageReading(Base, TimestampMixin):
-    """An odometer value on a date.
+    """An odometer value on a date, at most one per car per day.
 
     The history of these readings is what turns a mileage threshold into a calendar date:
     the average distance covered per day says roughly when the next service falls due,
     which is the only way a reminder can arrive before the fact rather than after it.
+
+    One per day is a lock rather than a convention, because readings arrive from more than
+    one place — entered on their own, carried along by an intervention, and later by a fill-up.
+    Two figures for the same day are not two facts, and the write path keeps the higher one.
     """
 
     __tablename__ = "mileage_readings"
@@ -70,6 +75,7 @@ class MileageReading(Base, TimestampMixin):
             ["vehicles.id", "vehicles.garage_id"],
             ondelete="CASCADE",
         ),
+        UniqueConstraint("vehicle_id", "recorded_on"),
         CheckConstraint("mileage_km >= 0", name="non_negative_mileage"),
     )
 

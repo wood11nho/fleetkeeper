@@ -10,7 +10,15 @@ what a tidy example does not.
 
 from datetime import date
 
-from fleetkeeper.odometer import MileageBasis, Pace, kilometres_on, pace, series
+from fleetkeeper.odometer import (
+    MileageBasis,
+    Pace,
+    bracket,
+    contradiction,
+    kilometres_on,
+    pace,
+    series,
+)
 from fleetkeeper.schedule import DistanceBasis, Reading
 
 TODAY = date(2026, 7, 27)
@@ -248,3 +256,48 @@ class TestKilometresOn:
 
         assert estimate.kilometres is None
         assert estimate.basis is MileageBasis.NONE
+
+
+class TestContradiction:
+    """Proving a recalled figure wrong, which is possible far more often than guessing it right."""
+
+    def test_a_figure_below_an_earlier_reading_is_impossible(self) -> None:
+        ruled_out = contradiction(GOLF, date(2026, 4, 1), 250_000)
+
+        assert ruled_out is not None
+        assert ruled_out.at_least == GOLF[1]
+        assert ruled_out.at_most == GOLF[2]
+
+    def test_a_figure_above_a_later_reading_is_impossible(self) -> None:
+        ruled_out = contradiction(GOLF, date(2026, 4, 1), 295_000)
+
+        assert ruled_out is not None
+        assert ruled_out.at_most == GOLF[2]
+
+    def test_a_figure_inside_the_readings_could_be_true(self) -> None:
+        assert contradiction(GOLF, date(2026, 2, 19), 286_442) is None
+        assert contradiction(GOLF, date(2026, 4, 1), 288_000) is None
+
+    def test_a_figure_below_one_already_written_for_that_day_is_impossible(self) -> None:
+        """The case that prompted this: a mileage typed from memory onto a day already recorded."""
+        ruled_out = contradiction(GOLF, date(2026, 2, 19), 286_000)
+
+        assert ruled_out is not None
+        assert ruled_out.at_least == GOLF[1]
+
+    def test_a_higher_figure_for_a_day_already_written_could_be_true(self) -> None:
+        """An errand later the same day is not a contradiction."""
+        assert contradiction(GOLF, date(2026, 2, 19), 286_500) is None
+
+    def test_a_figure_above_everything_known_could_be_true(self) -> None:
+        """Nothing bounds the future, so a reading past the last one is simply new."""
+        assert contradiction(GOLF, date(2026, 9, 1), 300_000) is None
+
+    def test_nothing_can_be_ruled_out_without_readings(self) -> None:
+        assert contradiction([], date(2026, 2, 19), 1_000_000) is None
+
+    def test_the_bracket_is_open_at_the_bottom_before_the_first_reading(self) -> None:
+        box = bracket(GOLF, date(2025, 1, 1))
+
+        assert box.at_least is None
+        assert box.at_most == GOLF[0]

@@ -62,6 +62,14 @@ class Estimate:
 
 
 @dataclass(frozen=True, slots=True)
+class Bracket:
+    """The real readings that box in what the odometer could have said on one day."""
+
+    at_least: Reading | None
+    at_most: Reading | None
+
+
+@dataclass(frozen=True, slots=True)
 class Pace:
     """A daily rate together with what backs it, so the interface can qualify what it shows."""
 
@@ -176,6 +184,37 @@ def kilometres_on(
 
     behind = round(per_day * (first.on - when).days)
     return Estimate(max(0, first.kilometres - behind), MileageBasis.PROJECTED)
+
+
+def bracket(readings: list[Reading], when: date) -> Bracket:
+    """The highest reading up to and including that day, and the lowest one after it.
+
+    `readings` is expected to have been through `series` already.
+    """
+    up_to = [reading for reading in readings if reading.on <= when]
+    after = [reading for reading in readings if reading.on > when]
+    return Bracket(up_to[-1] if up_to else None, after[0] if after else None)
+
+
+def contradiction(readings: list[Reading], when: date, kilometres: int) -> Bracket | None:
+    """The readings that prove this figure wrong, or nothing if it could be true.
+
+    What the odometer really said on a day somebody is recalling months later is rarely knowable.
+    Whether what they typed is *impossible* often is: below a reading already taken by that day, or
+    above one taken after it. Saying so while the invoice is still in their hand is far better than
+    storing a figure that quietly bends every projection built on it.
+
+    A reading from the same day is a lower bound rather than an exact match, because the odometer
+    climbs through the day and a later errand is not a contradiction. A figure below one already
+    recorded for that day is.
+    """
+    box = bracket(readings, when)
+
+    if box.at_least is not None and kilometres < box.at_least.kilometres:
+        return box
+    if box.at_most is not None and kilometres > box.at_most.kilometres:
+        return box
+    return None
 
 
 def _interpolated(readings: list[Reading], when: date) -> int:

@@ -3,13 +3,15 @@ from datetime import date
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
+from fleetkeeper import odometer
 from fleetkeeper.inputs import IntervalInput, VehicleInput
 from fleetkeeper.models.catalog import ServiceCategory
 from fleetkeeper.models.enums import CategoryKind, MileageSource
 from fleetkeeper.models.fuel import MileageReading
 from fleetkeeper.models.garage import Garage
-from fleetkeeper.models.maintenance import MaintenanceRule
+from fleetkeeper.models.maintenance import MaintenanceRule, ServiceEvent
 from fleetkeeper.models.vehicle import Vehicle
+from fleetkeeper.schedule import Reading
 
 
 class OdometerWentBackwardsError(Exception):
@@ -54,15 +56,13 @@ def create(session: Session, garage: Garage, submitted: VehicleInput, author: in
 
     install_rules(session, vehicle)
     if vehicle.current_mileage_km:
-        session.add(
-            MileageReading(
-                garage_id=vehicle.garage_id,
-                vehicle_id=vehicle.id,
-                recorded_on=date.today(),
-                mileage_km=vehicle.current_mileage_km,
-                source=MileageSource.MANUAL,
-                created_by_user_id=author,
-            )
+        _remember(
+            session,
+            vehicle,
+            vehicle.current_mileage_km,
+            on=date.today(),
+            author=author,
+            source=MileageSource.MANUAL,
         )
 
     return vehicle
@@ -121,15 +121,13 @@ def correct_odometer(session: Session, vehicle: Vehicle, corrected: int, *, auth
         .where(MileageReading.vehicle_id == vehicle.id)
     )
     if not remaining:
-        session.add(
-            MileageReading(
-                garage_id=vehicle.garage_id,
-                vehicle_id=vehicle.id,
-                recorded_on=date.today(),
-                mileage_km=corrected,
-                source=MileageSource.MANUAL,
-                created_by_user_id=author,
-            )
+        _remember(
+            session,
+            vehicle,
+            corrected,
+            on=date.today(),
+            author=author,
+            source=MileageSource.MANUAL,
         )
 
 
@@ -229,16 +227,80 @@ def record_odometer(
         raise OdometerWentBackwardsError(vehicle.current_mileage_km)
 
     vehicle.current_mileage_km = reading
+    return _remember(session, vehicle, reading, on=on, author=author, source=source)
+
+
+def _remember(
+    session: Session,
+    vehicle: Vehicle,
+    kilometres: int,
+    *,
+    on: date,
+    author: int,
+    source: MileageSource,
+) -> MileageReading:
+    """Write the odometer down for one day, keeping the higher figure if that day is taken.
+
+    A day holds one reading, enforced by the database. A second figure for the same day is
+    therefore a correction of the first rather than a new fact, and the higher one wins: the
+    odometer climbs through the day, so an errand after the first reading is not a contradiction.
+    """
+    already = session.scalar(
+        select(MileageReading).where(
+            MileageReading.vehicle_id == vehicle.id,
+            MileageReading.recorded_on == on,
+        )
+    )
+    if already is not None:
+        if kilometres > already.mileage_km:
+            already.mileage_km = kilometres
+            already.source = source
+        return already
+
     entry = MileageReading(
         garage_id=vehicle.garage_id,
         vehicle_id=vehicle.id,
         recorded_on=on,
-        mileage_km=reading,
+        mileage_km=kilometres,
         source=source,
         created_by_user_id=author,
     )
     session.add(entry)
     return entry
+
+
+def readings_for(session: Session, vehicle: Vehicle) -> list[Reading]:
+    """Every odometer figure known for this car: one per day, in order, never decreasing.
+
+    From both places one can be written down — readings of their own, and the mileage carried
+    along by an intervention. An intervention only leaves a reading of its own when it raises the
+    car's mileage, so a figure entered for a past visit would otherwise never reach the arithmetic.
+    That is how the measured daily rate came out forty-four per cent below the truth on a real car.
+    """
+    own = session.execute(
+        select(MileageReading.recorded_on, MileageReading.mileage_km).where(
+            MileageReading.vehicle_id == vehicle.id
+        )
+    )
+    with_a_service = session.execute(
+        select(ServiceEvent.performed_on, ServiceEvent.mileage_km).where(
+            ServiceEvent.vehicle_id == vehicle.id,
+            ServiceEvent.mileage_km.is_not(None),
+        )
+    )
+
+    readings = [Reading(on, kilometres) for on, kilometres in own]
+    readings += [
+        Reading(on, kilometres) for on, kilometres in with_a_service if kilometres is not None
+    ]
+    return odometer.series(readings)
+
+
+def impossible_mileage(
+    session: Session, vehicle: Vehicle, kilometres: int, *, on: date
+) -> odometer.Bracket | None:
+    """The readings that prove a figure wrong for that day, or nothing if it could be true."""
+    return odometer.contradiction(readings_for(session, vehicle), on, kilometres)
 
 
 def apply_interval_edits(session: Session, vehicle: Vehicle, edits: list[IntervalInput]) -> int:

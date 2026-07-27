@@ -75,7 +75,12 @@
         Kilometrajul de atunci <span class="field__optional">opțional</span>
       </span>
       <span class="field__hint">
-        Dacă e mai mare decât ce știm, actualizăm și kilometrajul mașinii
+        {% if last_reading %}
+        Ultimul kilometraj cunoscut: {{ last_reading.kilometres | km }} km, pe
+        {{ last_reading.on | zi }}. Lasă gol dacă nu-l ții minte — îl estimăm din citirile din jur
+        {% else %}
+        Lasă gol dacă nu-l ții minte
+        {% endif %}
       </span>
       <input
         class="field__input{% if errors.get('mileage_km') %} field__input--invalid{% endif %}"
