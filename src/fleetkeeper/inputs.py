@@ -8,14 +8,43 @@ web/forms.py.
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Annotated
+from decimal import Decimal
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+)
 
 from fleetkeeper.models.enums import Drivetrain, Equipment, FuelType, GearboxType
 
 ShortText = Annotated[str, StringConstraints(min_length=1, max_length=60)]
 OptionalText = Annotated[str, StringConstraints(max_length=60)]
+
+
+def as_decimal_text(value: Any) -> Any:
+    """Accept an amount written the way it is written in Romania.
+
+    A comma is the decimal separator here and a dot groups thousands, which is the opposite of
+    what Decimal expects. Refusing "349,90" would be technically correct and useless.
+    """
+    if not isinstance(value, str):
+        return value
+
+    text = value.strip().replace(" ", "").replace("lei", "").replace("RON", "")
+    if "," in text and "." in text:
+        return text.replace(".", "").replace(",", ".")
+    if "," in text:
+        return text.replace(",", ".")
+    return text
+
+
+Amount = Annotated[Decimal, BeforeValidator(as_decimal_text), Field(ge=0, le=1_000_000)]
+Quantity = Annotated[Decimal, BeforeValidator(as_decimal_text), Field(gt=0, le=1_000)]
 
 
 class VehicleInput(BaseModel):
@@ -61,6 +90,42 @@ class VehicleInput(BaseModel):
 class OdometerInput(BaseModel):
     mileage_km: Annotated[int, Field(ge=0, le=3_000_000)]
     recorded_on: date | None = None
+
+
+class ServiceEventInput(BaseModel):
+    """Something that was done to a car.
+
+    Only the category and the date are required. Mileage, cost, workshop and parts are all
+    optional, because a record written from memory months later is still worth far more than no
+    record at all, and a form that demands the invoice number gets abandoned.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    category_id: int
+    performed_on: date
+    mileage_km: Annotated[int, Field(ge=0, le=3_000_000)] | None = None
+    cost: Amount | None = None
+    workshop: Annotated[str, StringConstraints(max_length=120)] | None = None
+    notes: Annotated[str, StringConstraints(max_length=2_000)] | None = None
+
+    @field_validator("performed_on")
+    @classmethod
+    def not_in_the_future(cls, performed_on: date) -> date:
+        if performed_on > date.today():
+            raise ValueError("work cannot have been done tomorrow")
+        return performed_on
+
+
+@dataclass(frozen=True, slots=True)
+class PartInput:
+    """A part or fluid used during one intervention."""
+
+    name: str
+    brand: str | None
+    part_number: str | None
+    quantity: Decimal
+    unit_cost: Decimal | None
 
 
 @dataclass(frozen=True, slots=True)

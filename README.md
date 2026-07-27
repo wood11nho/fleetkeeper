@@ -89,7 +89,8 @@ The same four run in CI on every push.
 - [x] Data model, migrations, service catalogue
 - [x] Authentication and mobile-first interface
 - [x] Vehicles, odometer readings, per-car schedules
-- [ ] Service history with receipts and photographs
+- [x] Service history with parts and costs
+- [ ] Receipts and photographs
 - [ ] Due-date engine and the dashboard
 - [ ] Insurance and inspection documents
 - [ ] Fuel log and consumption

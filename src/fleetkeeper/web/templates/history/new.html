@@ -1,0 +1,202 @@
+{% extends "app.html" %}
+
+{% block title %}Adaugă o intervenție · {{ vehicle.name }} · FleetKeeper{% endblock %}
+
+{% macro suggestion_list(id, options) %}
+<datalist id="{{ id }}">
+  {% for option in options %}<option value="{{ option }}"></option>{% endfor %}
+</datalist>
+{% endmacro %}
+
+{% block content %}
+<h1>Ce s-a făcut</h1>
+<p class="lead">{{ vehicle.name }}</p>
+
+{% if notice %}
+<p class="notice notice--error" role="alert">{{ notice }}</p>
+{% elif errors %}
+<p class="notice notice--error" role="alert">
+  Câteva câmpuri au nevoie de atenție. Sunt marcate mai jos.
+</p>
+{% endif %}
+
+<form class="stack" method="post" action="/masini/{{ vehicle.id }}/istoric/adauga">
+  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+
+  <section class="card">
+    <h2 class="card__title">Obligatoriu</h2>
+    <p class="muted">Doar atât. Restul completează cât vrei, când vrei.</p>
+
+    <label class="field">
+      <span class="field__label">Ce operațiune</span>
+      <select
+        class="field__input{% if errors.get('category_id') %} field__input--invalid{% endif %}"
+        name="category_id"
+        required
+      >
+        <option value="">Alege...</option>
+        {% for section, group in categories | groupby("section.value") %}
+        <optgroup label="{{ section_labels[section] }}">
+          {% for category in group %}
+          <option value="{{ category.id }}"
+                  {% if values.get("category_id") == category.id | string %}selected{% endif %}>
+            {{ category.name }}
+          </option>
+          {% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+      {% if errors.get("category_id") %}
+      <span class="field__error">{{ errors["category_id"] }}</span>
+      {% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field__label">Când</span>
+      <input
+        class="field__input{% if errors.get('performed_on') %} field__input--invalid{% endif %}"
+        type="date"
+        name="performed_on"
+        max="{{ today }}"
+        value="{{ values.get('performed_on', today) }}"
+        required
+      />
+      {% if errors.get("performed_on") %}
+      <span class="field__error">{{ errors["performed_on"] }}</span>
+      {% endif %}
+    </label>
+  </section>
+
+  <section class="card">
+    <h2 class="card__title">Detalii</h2>
+
+    <label class="field">
+      <span class="field__label">
+        Kilometrajul de atunci <span class="field__optional">opțional</span>
+      </span>
+      <span class="field__hint">
+        Dacă e mai mare decât ce știm, actualizăm și kilometrajul mașinii
+      </span>
+      <input
+        class="field__input{% if errors.get('mileage_km') %} field__input--invalid{% endif %}"
+        type="text"
+        name="mileage_km"
+        inputmode="numeric"
+        value="{{ values.get('mileage_km', '') }}"
+      />
+      {% if errors.get("mileage_km") %}
+      <span class="field__error">{{ errors["mileage_km"] }}</span>
+      {% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field__label">Cât a costat <span class="field__optional">opțional</span></span>
+      <span class="field__hint">În lei. Poți scrie 350 sau 349,90</span>
+      <input
+        class="field__input{% if errors.get('cost') %} field__input--invalid{% endif %}"
+        type="text"
+        name="cost"
+        inputmode="decimal"
+        value="{{ values.get('cost', '') }}"
+      />
+      {% if errors.get("cost") %}<span class="field__error">{{ errors["cost"] }}</span>{% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field__label">Unde <span class="field__optional">opțional</span></span>
+      <input
+        class="field__input"
+        type="text"
+        name="workshop"
+        list="service-uri"
+        value="{{ values.get('workshop', '') }}"
+      />
+    </label>
+    {{ suggestion_list("service-uri", suggestions.workshops) }}
+
+    <label class="field">
+      <span class="field__label">Notițe <span class="field__optional">opțional</span></span>
+      <textarea class="field__input field__input--tall" name="notes" rows="3">{{ values.get("notes", "") }}</textarea>
+    </label>
+  </section>
+
+  <section class="card">
+    <h2 class="card__title">Piese și materiale</h2>
+    <p class="muted">
+      Complet opțional. Merită scris pentru ce vrei să comanzi la fel a doua oară — uleiul,
+      filtrul, plăcuțele. Lasă rândurile goale pe cele care nu-ți trebuie.
+    </p>
+
+    {% for row in part_rows %}
+    <div class="part">
+      <label class="field">
+        <span class="field__label">Piesa {{ loop.index }}</span>
+        <input
+          class="field__input{% if errors.get('part_name_' ~ row) %} field__input--invalid{% endif %}"
+          type="text"
+          name="part_name_{{ row }}"
+          list="piese"
+          placeholder="ulei motor, filtru de ulei"
+          value="{{ values.get('part_name_' ~ row, '') }}"
+        />
+        {% if errors.get("part_name_" ~ row) %}
+        <span class="field__error">{{ errors["part_name_" ~ row] }}</span>
+        {% endif %}
+      </label>
+
+      <div class="part__row">
+        <label class="field part__field">
+          <span class="field__label">Marca</span>
+          <input class="field__input" type="text" name="part_brand_{{ row }}" list="marci"
+                 value="{{ values.get('part_brand_' ~ row, '') }}" />
+        </label>
+        <label class="field part__field">
+          <span class="field__label">Cod piesă</span>
+          <input class="field__input" type="text" name="part_number_{{ row }}"
+                 value="{{ values.get('part_number_' ~ row, '') }}" />
+        </label>
+      </div>
+
+      <div class="part__row">
+        <label class="field part__field">
+          <span class="field__label">Cantitate</span>
+          <input
+            class="field__input{% if errors.get('part_quantity_' ~ row) %} field__input--invalid{% endif %}"
+            type="text"
+            name="part_quantity_{{ row }}"
+            inputmode="decimal"
+            placeholder="1"
+            value="{{ values.get('part_quantity_' ~ row, '') }}"
+          />
+          {% if errors.get("part_quantity_" ~ row) %}
+          <span class="field__error">{{ errors["part_quantity_" ~ row] }}</span>
+          {% endif %}
+        </label>
+        <label class="field part__field">
+          <span class="field__label">Preț bucata</span>
+          <input
+            class="field__input{% if errors.get('part_cost_' ~ row) %} field__input--invalid{% endif %}"
+            type="text"
+            name="part_cost_{{ row }}"
+            inputmode="decimal"
+            value="{{ values.get('part_cost_' ~ row, '') }}"
+          />
+          {% if errors.get("part_cost_" ~ row) %}
+          <span class="field__error">{{ errors["part_cost_" ~ row] }}</span>
+          {% endif %}
+        </label>
+      </div>
+    </div>
+    {% endfor %}
+
+    {{ suggestion_list("piese", suggestions.part_names) }}
+    {{ suggestion_list("marci", suggestions.brands) }}
+  </section>
+
+  <button class="button button--primary" type="submit">Salvează intervenția</button>
+</form>
+
+<p class="card__footer">
+  <a href="/masini/{{ vehicle.id }}/istoric">Renunță și întoarce-te la istoric</a>
+</p>
+{% endblock %}

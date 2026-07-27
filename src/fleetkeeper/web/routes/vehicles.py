@@ -10,7 +10,7 @@ from fleetkeeper.models.garage import Garage
 from fleetkeeper.models.user import User
 from fleetkeeper.models.vehicle import Vehicle
 from fleetkeeper.security import csrf
-from fleetkeeper.services import garages, vehicles
+from fleetkeeper.services import garages, history, vehicles
 from fleetkeeper.web import labels
 from fleetkeeper.web.dependencies import CurrentUser, DatabaseSession
 from fleetkeeper.web.formatting import thousands
@@ -288,6 +288,8 @@ def _detail_page(
             "user": user,
             "vehicle": vehicle,
             "sections": vehicles.rules_by_section(db, vehicle),
+            "recent": history.latest(db, vehicle, limit=3),
+            "last_done": history.last_done(db, vehicle),
             "today": date.today().isoformat(),
             "notice": notice,
             "fuel_labels": labels.FUEL_LABELS,

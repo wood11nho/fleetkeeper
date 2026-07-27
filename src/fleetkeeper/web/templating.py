@@ -20,3 +20,5 @@ def _shared_context(request: Request) -> dict[str, Any]:
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR, context_processors=[_shared_context])
 templates.env.filters["km"] = formatting.thousands
+templates.env.filters["lei"] = formatting.money
+templates.env.filters["zi"] = formatting.day

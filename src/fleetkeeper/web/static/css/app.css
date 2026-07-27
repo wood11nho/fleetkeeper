@@ -536,3 +536,65 @@ a {
 .interval .field + .checkbox {
   margin-top: var(--space-3);
 }
+
+.rule__action {
+  display: inline-block;
+  margin-top: var(--space-2);
+  font-weight: 600;
+}
+
+.part {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.part:last-of-type {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.part__row {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.part__field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-5);
+}
+
+.filters__field {
+  flex: 1 1 10rem;
+}
+
+.event__date {
+  margin: 0 0 var(--space-1);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.event__notes {
+  margin-top: var(--space-3);
+}
+
+.event__remove {
+  margin: var(--space-4) 0 0;
+}
+
+.parts {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+}
+
+.parts__item {
+  padding: var(--space-1) 0;
+}

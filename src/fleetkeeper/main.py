@@ -10,7 +10,7 @@ from fleetkeeper.config import Settings, get_settings
 from fleetkeeper.database import create_session_factory
 from fleetkeeper.security import csrf
 from fleetkeeper.web.dependencies import NotSignedInError
-from fleetkeeper.web.routes import auth, health, home, vehicles
+from fleetkeeper.web.routes import auth, health, history, home, vehicles
 from fleetkeeper.web.templating import STATIC_DIR
 
 
@@ -43,6 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(home.router)
     app.include_router(vehicles.router)
+    app.include_router(history.router)
 
     @app.middleware("http")
     async def ensure_csrf_cookie(

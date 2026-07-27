@@ -1,0 +1,125 @@
+{% extends "app.html" %}
+
+{% block title %}Istoric · {{ vehicle.name }} · FleetKeeper{% endblock %}
+
+{% block content %}
+<h1>Istoric</h1>
+<p class="lead">{{ vehicle.name }}</p>
+
+<p class="actions">
+  <a class="button button--primary" href="/masini/{{ vehicle.id }}/istoric/adauga">
+    Adaugă o intervenție
+  </a>
+  <a class="button" href="/masini/{{ vehicle.id }}">Fișa mașinii</a>
+</p>
+
+{% if counted %}
+<section class="card">
+  <p class="figure">
+    {{ counted }} {% if counted == 1 %}intervenție{% else %}intervenții{% endif %} înregistrate
+  </p>
+  {% if spent %}<p class="figure figure--large">{{ spent | lei }}</p>{% endif %}
+</section>
+
+<form class="filters" method="get" action="/masini/{{ vehicle.id }}/istoric">
+  <label class="field filters__field">
+    <span class="field__label">Operațiunea</span>
+    <select class="field__input" name="categorie">
+      <option value="">Toate</option>
+      {% for section, group in categories | groupby("section.value") %}
+      <optgroup label="{{ section_labels[section] }}">
+        {% for category in group %}
+        <option value="{{ category.id }}" {% if chosen_category == category.id %}selected{% endif %}>
+          {{ category.name }}
+        </option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label class="field filters__field">
+    <span class="field__label">Anul</span>
+    <select class="field__input" name="an">
+      <option value="">Toți</option>
+      {% for year in years %}
+      <option value="{{ year }}" {% if chosen_year == year %}selected{% endif %}>{{ year }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <button class="button" type="submit">Filtrează</button>
+</form>
+{% endif %}
+
+{% if events %}
+  {% for event in events %}
+  <article class="card event">
+    <p class="event__date">{{ event.performed_on | zi }}</p>
+    <h2 class="card__title">{{ event.category.name }}</h2>
+
+    <dl class="facts">
+      {% if event.mileage_km %}
+      <div class="facts__row">
+        <dt class="facts__label">Kilometraj</dt>
+        <dd class="facts__value">{{ event.mileage_km | km }} km</dd>
+      </div>
+      {% endif %}
+      {% if event.cost %}
+      <div class="facts__row">
+        <dt class="facts__label">Cost</dt>
+        <dd class="facts__value">{{ event.cost | lei }}</dd>
+      </div>
+      {% endif %}
+      {% if event.workshop %}
+      <div class="facts__row">
+        <dt class="facts__label">Unde</dt>
+        <dd class="facts__value">{{ event.workshop }}</dd>
+      </div>
+      {% endif %}
+    </dl>
+
+    {% if event.items %}
+    <p class="field__label">Piese</p>
+    <ul class="parts">
+      {% for item in event.items %}
+      <li class="parts__item">
+        {{ item.name }}{% if item.brand %}, {{ item.brand }}{% endif %}
+        {%- if item.part_number %} <span class="muted">({{ item.part_number }})</span>{% endif %}
+        {%- if item.quantity and item.quantity != 1 %} × {{ item.quantity | int }}{% endif %}
+        {%- if item.unit_cost %} — {{ item.unit_cost | lei }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if event.notes %}<p class="muted event__notes">{{ event.notes }}</p>{% endif %}
+
+    <form
+      class="event__remove"
+      method="post"
+      action="/masini/{{ vehicle.id }}/istoric/{{ event.id }}/sterge"
+      onsubmit="return confirm('Ștergi această intervenție? Nu se poate reveni.')"
+    >
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+      <button class="button button--quiet" type="submit">Șterge</button>
+    </form>
+  </article>
+  {% endfor %}
+{% elif chosen_category or chosen_year %}
+<section class="card">
+  <h2 class="card__title">Nimic pentru filtrul ales</h2>
+  <p class="card__footer">
+    <a href="/masini/{{ vehicle.id }}/istoric">Arată tot istoricul</a>
+  </p>
+</section>
+{% else %}
+<section class="card">
+  <h2 class="card__title">Nimic înregistrat încă</h2>
+  <p class="muted">
+    Începe cu ce știi: ultimul schimb de ulei, ultima revizie. Nu trebuie să fie complet — o dată
+    și o operațiune sunt de ajuns, iar de acolo încolo aplicația poate calcula ce urmează.
+  </p>
+</section>
+{% endif %}
+{% endblock %}

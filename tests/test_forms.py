@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
+from decimal import Decimal
 
 from starlette.datastructures import FormData, UploadFile
 
-from fleetkeeper.inputs import OdometerInput, VehicleInput
+from fleetkeeper.inputs import OdometerInput, ServiceEventInput, VehicleInput
 from fleetkeeper.models.enums import Drivetrain, Equipment, FuelType, GearboxType
-from fleetkeeper.web.forms import parse, parse_intervals, previous_values
+from fleetkeeper.web.forms import parse, parse_intervals, parse_parts, previous_values
 
 # FormData accepts uploads alongside text, so the pairs have to be typed as widely as it does.
 Field = tuple[str, str | UploadFile]
@@ -66,7 +67,7 @@ def test_a_year_in_the_future_is_refused() -> None:
     vehicle, errors = parse(VehicleInput, submit(("model_year", str(date.today().year + 5))))
 
     assert vehicle is None
-    assert errors["model_year"] == "Anul nu poate fi în viitor."
+    assert errors["model_year"] == "Nu poate fi în viitor."
 
 
 def test_next_year_is_allowed_because_registrations_run_ahead() -> None:
@@ -116,6 +117,92 @@ def test_a_negative_odometer_reading_is_refused() -> None:
 
     assert reading is None
     assert "mai mic" in errors["mileage_km"]
+
+
+def intervention(*extra: Field) -> FormData:
+    return FormData([("category_id", "1"), ("performed_on", date.today().isoformat()), *extra])
+
+
+def test_an_intervention_needs_only_a_category_and_a_date() -> None:
+    event, errors = parse(ServiceEventInput, intervention())
+
+    assert errors == {}
+    assert event is not None
+    assert event.cost is None
+    assert event.workshop is None
+
+
+def test_work_cannot_have_been_done_tomorrow() -> None:
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
+    event, errors = parse(ServiceEventInput, intervention(("performed_on", tomorrow)))
+
+    assert event is None
+    assert errors["performed_on"] == "Nu poate fi în viitor."
+
+
+def test_an_amount_written_with_a_comma_is_accepted() -> None:
+    """A comma is the decimal separator here. Refusing 349,90 would be correct and useless."""
+    event, errors = parse(ServiceEventInput, intervention(("cost", "349,90")))
+
+    assert errors == {}
+    assert event is not None
+    assert event.cost == Decimal("349.90")
+
+
+def test_an_amount_with_grouped_thousands_is_accepted() -> None:
+    event, errors = parse(ServiceEventInput, intervention(("cost", "1.234,50")))
+
+    assert errors == {}
+    assert event is not None
+    assert event.cost == Decimal("1234.50")
+
+
+def test_a_named_part_is_kept_and_empty_rows_are_skipped() -> None:
+    parts, problems = parse_parts(
+        FormData(
+            [
+                ("part_name_0", "ulei motor"),
+                ("part_brand_0", "Castrol"),
+                ("part_number_0", "EDGE 5W30"),
+                ("part_quantity_0", "4,5"),
+                ("part_cost_0", "62,90"),
+                ("part_name_1", ""),
+                ("part_name_2", ""),
+                ("part_name_3", ""),
+            ]
+        )
+    )
+
+    assert problems == {}
+    assert len(parts) == 1
+    assert parts[0].name == "ulei motor"
+    assert parts[0].quantity == Decimal("4.50")
+    assert parts[0].unit_cost == Decimal("62.90")
+
+
+def test_a_part_with_no_quantity_counts_as_one() -> None:
+    parts, problems = parse_parts(FormData([("part_name_0", "filtru de ulei")]))
+
+    assert problems == {}
+    assert parts[0].quantity == Decimal("1.00")
+
+
+def test_a_price_with_no_part_name_is_reported() -> None:
+    """Otherwise the row vanishes silently, along with the money it accounts for."""
+    parts, problems = parse_parts(FormData([("part_cost_0", "62,90")]))
+
+    assert parts == []
+    assert "part_name_0" in problems
+
+
+def test_a_part_priced_in_words_is_refused() -> None:
+    parts, problems = parse_parts(
+        FormData([("part_name_0", "ulei"), ("part_cost_0", "vreo șaizeci")])
+    )
+
+    assert parts == []
+    assert "sumă" in problems["part_cost_0"]
 
 
 def test_an_edited_schedule_is_read_back_per_rule() -> None:

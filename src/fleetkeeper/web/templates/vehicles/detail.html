@@ -22,6 +22,10 @@
 {% endif %}
 
 <p class="actions">
+  <a class="button button--primary" href="/masini/{{ vehicle.id }}/istoric/adauga">
+    Adaugă o intervenție
+  </a>
+  <a class="button" href="/masini/{{ vehicle.id }}/istoric">Istoric</a>
   <a class="button" href="/masini/{{ vehicle.id }}/editeaza">Editează mașina</a>
   <a class="button" href="/masini/{{ vehicle.id }}/intervale">Reglează intervalele</a>
 </p>
@@ -44,6 +48,23 @@
     <button class="button button--primary" type="submit">Salvează kilometrajul</button>
   </form>
 </section>
+
+{% if recent %}
+<section class="card">
+  <h2 class="card__title">Ultimele intervenții</h2>
+  <ul class="rules">
+    {% for event in recent %}
+    <li class="rule">
+      <span class="rule__name">{{ event.category.name }}</span>
+      <span class="rule__interval">
+        {{ event.performed_on | zi }}{% if event.mileage_km %}, la {{ event.mileage_km | km }} km{% endif %}{% if event.cost %}, {{ event.cost | lei }}{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="card__footer"><a href="/masini/{{ vehicle.id }}/istoric">Vezi tot istoricul</a></p>
+</section>
+{% endif %}
 
 <section class="card">
   <h2 class="card__title">Date tehnice</h2>
@@ -111,9 +132,16 @@
       {% if rule.source_note %}
       <span class="badge">sursa ta: {{ rule.source_note }}</span>
       {% endif %}
+      {% if rule.category.id in last_done %}
+      <span class="badge">ultima dată {{ last_done[rule.category.id] | zi }}</span>
+      {% endif %}
       {% if rule.category.hint %}
       <span class="rule__hint">{{ rule.category.hint }}</span>
       {% endif %}
+      <a
+        class="rule__action"
+        href="/masini/{{ vehicle.id }}/istoric/adauga?categorie={{ rule.category.id }}"
+      >Am făcut asta</a>
     </li>
     {% endfor %}
   </ul>
