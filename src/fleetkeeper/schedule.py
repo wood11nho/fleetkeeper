@@ -7,7 +7,8 @@ readable rather than being spread across queries.
 The shape of a real service schedule is *every 15,000 km or 12 months, whichever comes sooner*.
 Two intervals, and the earlier one wins. The awkward part is that one of them is a distance and
 the other is a date, and a reminder has to arrive on a day — so a distance has to be turned into
-a date, using how far this car actually travels.
+a date, using how far this car actually travels. That figure is worked out in `odometer` and
+arrives here as a `DailyDistance`.
 """
 
 from calendar import monthrange
@@ -18,12 +19,6 @@ from enum import StrEnum
 # A reminder is worth having only if it arrives with time to book an appointment.
 DEFAULT_WARNING_DAYS = 30
 DEFAULT_WARNING_KILOMETRES = 1_000
-
-# Two readings a week apart extrapolate to nonsense. Below this span the measured rate is thrown
-# away in favour of the owner's own estimate, which is at least a considered figure.
-MINIMUM_MEASURED_SPAN_DAYS = 30
-
-DAYS_PER_YEAR = 365.25
 
 
 class DueStatus(StrEnum):
@@ -122,32 +117,6 @@ def add_months(start: date, months: int) -> date:
     month = total % 12 + 1
     day = min(start.day, _days_in_month(year, month))
     return date(year, month, day)
-
-
-def daily_distance(
-    readings: list[Reading],
-    annual_estimate: int | None = None,
-) -> DailyDistance:
-    """How far this car covers in a day.
-
-    Measured from the odometer history when there is enough of it to mean anything, and otherwise
-    from the figure the owner gave when adding the car. Which of the two was used is reported,
-    because a date projected from two years of readings deserves more confidence than one
-    projected from a guess, and the interface should be able to say which it is showing.
-    """
-    if len(readings) >= 2:
-        ordered = sorted(readings, key=lambda reading: reading.on)
-        first, last = ordered[0], ordered[-1]
-        days = (last.on - first.on).days
-        travelled = last.kilometres - first.kilometres
-
-        if days >= MINIMUM_MEASURED_SPAN_DAYS and travelled > 0:
-            return DailyDistance(travelled / days, DistanceBasis.MEASURED)
-
-    if annual_estimate and annual_estimate > 0:
-        return DailyDistance(annual_estimate / DAYS_PER_YEAR, DistanceBasis.ESTIMATED)
-
-    return DailyDistance(None, DistanceBasis.NONE)
 
 
 def next_due(

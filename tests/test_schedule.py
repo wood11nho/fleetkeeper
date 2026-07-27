@@ -6,6 +6,7 @@ its own situation completely and the results cannot drift with the calendar.
 
 from datetime import date
 
+from fleetkeeper.odometer import pace
 from fleetkeeper.schedule import (
     DailyDistance,
     DistanceBasis,
@@ -15,7 +16,6 @@ from fleetkeeper.schedule import (
     Reading,
     Thresholds,
     add_months,
-    daily_distance,
     next_due,
 )
 
@@ -24,9 +24,8 @@ TODAY = date(2026, 7, 27)
 
 def rate(per_day: float) -> DailyDistance:
     """A known daily distance, so each case can state the pace it assumes."""
-    return daily_distance(
-        [Reading(date(2025, 7, 27), 0), Reading(date(2026, 7, 27), round(per_day * 365))]
-    )
+    readings = [Reading(date(2025, 7, 27), 0), Reading(date(2026, 7, 27), round(per_day * 365))]
+    return pace(readings, today=TODAY).distance
 
 
 class TestAddMonths:
@@ -45,50 +44,6 @@ class TestAddMonths:
 
     def test_it_knows_about_leap_years(self) -> None:
         assert add_months(date(2024, 1, 31), 1) == date(2024, 2, 29)
-
-
-class TestDailyDistance:
-    def test_it_measures_from_the_odometer_history(self) -> None:
-        readings = [Reading(date(2026, 1, 1), 100_000), Reading(date(2026, 7, 1), 110_000)]
-
-        distance = daily_distance(readings)
-
-        assert distance.basis is DistanceBasis.MEASURED
-        assert distance.per_day is not None
-        assert round(distance.per_day) == 55
-
-    def test_readings_too_close_together_are_not_trusted(self) -> None:
-        """Two readings a week apart extrapolate to nonsense, so the owner's figure wins."""
-        readings = [Reading(date(2026, 7, 20), 100_000), Reading(date(2026, 7, 27), 3_000)]
-
-        distance = daily_distance(readings, annual_estimate=12_000)
-
-        assert distance.basis is DistanceBasis.ESTIMATED
-
-    def test_it_falls_back_to_the_declared_annual_distance(self) -> None:
-        distance = daily_distance([], annual_estimate=18_000)
-
-        assert distance.basis is DistanceBasis.ESTIMATED
-        assert distance.per_day is not None
-        assert round(distance.per_day) == 49
-
-    def test_with_nothing_to_go_on_it_says_so(self) -> None:
-        distance = daily_distance([])
-
-        assert distance.basis is DistanceBasis.NONE
-        assert distance.per_day is None
-        assert distance.days_to_cover(5_000) is None
-
-    def test_readings_that_go_nowhere_are_not_a_rate(self) -> None:
-        """A car that has not moved between two readings does not travel zero km a day forever."""
-        readings = [Reading(date(2026, 1, 1), 100_000), Reading(date(2026, 7, 1), 100_000)]
-
-        assert daily_distance(readings, annual_estimate=10_000).basis is DistanceBasis.ESTIMATED
-
-    def test_readings_out_of_order_are_sorted_first(self) -> None:
-        readings = [Reading(date(2026, 7, 1), 110_000), Reading(date(2026, 1, 1), 100_000)]
-
-        assert daily_distance(readings).basis is DistanceBasis.MEASURED
 
 
 class TestNeverRecorded:
@@ -222,7 +177,7 @@ class TestMileageOnly:
             Interval(kilometres=15_000, months=None),
             last_done=LastDone(date(2026, 1, 1), 190_000),
             current_kilometres=195_000,
-            distance=daily_distance([]),
+            distance=pace([], today=TODAY).distance,
             today=TODAY,
         )
 
@@ -300,16 +255,17 @@ class TestThresholds:
             Interval(kilometres=15_000, months=None),
             LastDone(date(2026, 1, 1), 190_000),
             195_000,
-            daily_distance(
-                [Reading(date(2025, 1, 1), 150_000), Reading(date(2026, 1, 1), 190_000)]
-            ),
+            pace(
+                [Reading(date(2025, 1, 1), 150_000), Reading(date(2026, 1, 1), 190_000)],
+                today=TODAY,
+            ).distance,
             TODAY,
         )
         from_a_guess = next_due(
             Interval(kilometres=15_000, months=None),
             LastDone(date(2026, 1, 1), 190_000),
             195_000,
-            daily_distance([], annual_estimate=40_000),
+            pace([], today=TODAY, annual_estimate=40_000).distance,
             TODAY,
         )
 
